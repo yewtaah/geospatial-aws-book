@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Explorer – Geospatial Data Analytics on AWS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        body { display: flex; flex-direction: column; min-height: 100vh; }
+        .pg-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            flex: 1;
+            height: calc(100vh - 56px);
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ──────────────────────────────────────────────────────── */
+        .pg-controls {
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.1rem;
+        }
+        .ctrl-label {
+            font-size: 0.69rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .ctrl-section { border-top: 1px solid var(--border); padding-top: 1rem; }
+        .opt-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            width: 100%;
+            text-align: left;
+            padding: 0.55rem 0.85rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 0.83rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-bottom: 0.3rem;
+        }
+        .opt-btn:hover { border-color: var(--sky); color: var(--sky); }
+        .opt-btn.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.1); }
+        .opt-btn .op-icon { font-size: 0.95rem; flex-shrink: 0; width: 18px; text-align: center; }
+        .opt-btn .op-info { display: flex; flex-direction: column; }
+        .opt-btn .op-name { font-weight: 600; font-size: 0.83rem; line-height: 1.2; }
+        .opt-btn .op-desc { font-size: 0.7rem; opacity: 0.65; line-height: 1.3; }
+        .download-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.6rem;
+            background: rgba(14,165,233,0.07);
+            border: 1px solid var(--sky);
+            border-radius: 3px;
+            color: var(--sky);
+            font-size: 0.81rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .download-btn:hover { background: rgba(14,165,233,0.16); }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+        .stat-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.55rem 0.75rem;
+        }
+        .stat-val { font-size: 1.05rem; font-weight: 700; color: var(--sky); line-height: 1; }
+        .stat-lbl {
+            font-size: 0.67rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .code-block {
+            background: #02040a;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.85rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.71rem;
+            line-height: 1.65;
+            color: #8b9cc4;
+            overflow-x: auto;
+            white-space: pre;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .code-block .kw { color: #c792ea; }
+        .code-block .fn { color: #82aaff; }
+        .code-block .str { color: #c3e88d; }
+        .code-block .cm { color: #4d5e78; font-style: italic; }
+        .code-block .num { color: #f78c6c; }
+        .chapter-tag {
+            font-size: 0.7rem;
+            color: var(--sky);
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        /* ── Right panel ──────────────────────────────────────────────────── */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .map-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+        #map { height: 100%; width: 100%; }
+
+        /* Data panel — fixed height when map is visible */
+        .data-panel {
+            flex: 0 0 300px;
+            border-top: 2px solid var(--border-mid);
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-surface);
+            min-height: 0;
+        }
+        /* Addresses mode: hide map, expand data panel to fill */
+        .right-panel.addr-mode .map-wrap { display: none; }
+        .right-panel.addr-mode .data-panel {
+            flex: 1;
+            border-top: none;
+        }
+
+        /* ── Tabs ─────────────────────────────────────────────────────────── */
+        .tab-bar {
+            display: flex;
+            align-items: center;
+            padding: 0 0.5rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+            flex-shrink: 0;
+        }
+        .tab-bar-title {
+            flex: 1;
+            font-size: 0.67rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 0 0.5rem;
+        }
+        .tab-btn {
+            padding: 0.48rem 0.9rem;
+            font-size: 0.73rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            transition: all 0.15s;
+            margin-bottom: -1px;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--sky); border-bottom-color: var(--sky); }
+        .tab-content { display: none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+        .tab-content.active { display: flex; }
+
+        /* ── Table ────────────────────────────────────────────────────────── */
+        .table-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.48rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            background: var(--bg-surface);
+        }
+        .search-input {
+            flex: 1;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-mid);
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 0.77rem;
+            padding: 0.3rem 0.65rem;
+        }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:focus { outline: none; border-color: var(--sky); }
+        .page-info { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+        .page-btn {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            padding: 0.22rem 0.55rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            line-height: 1;
+        }
+        .page-btn:hover:not(:disabled) { border-color: var(--sky); color: var(--sky); }
+        .page-btn:disabled { opacity: 0.3; cursor: default; }
+        .table-scroll { flex: 1; overflow: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th {
+            position: sticky;
+            top: 0;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-mid);
+            padding: 0.4rem 0.75rem;
+            text-align: left;
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.65rem;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        thead th:hover { color: var(--sky); }
+        thead th.sort-asc::after  { content: ' ↑'; color: var(--sky); }
+        thead th.sort-desc::after { content: ' ↓'; color: var(--sky); }
+        tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+        tbody tr:hover { background: rgba(14,165,233,0.04); }
+        tbody tr.row-selected { background: rgba(14,165,233,0.1); }
+        tbody td {
+            padding: 0.33rem 0.75rem;
+            font-size: 0.76rem;
+            color: var(--text-dim);
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        tbody td:first-child { color: #a8c4dd; font-weight: 600; }
+
+        /* ── Raw code panel ───────────────────────────────────────────────── */
+        .raw-code-wrap {
+            flex: 1;
+            overflow: auto;
+            background: #02040a;
+        }
+        .raw-code {
+            padding: 0.9rem 1.1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            line-height: 1.75;
+            color: #8b9cc4;
+            white-space: pre;
+            min-height: 100%;
+        }
+
+        /* ── Loading overlay ──────────────────────────────────────────────── */
+        .load-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(5,8,15,0.82);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.85rem;
+            z-index: 500;
+        }
+        .load-overlay.hidden { display: none; }
+        .spin {
+            width: 28px; height: 28px;
+            border: 2.5px solid var(--border-mid);
+            border-top-color: var(--sky);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .load-text { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* ── Leaflet overrides ────────────────────────────────────────────── */
+        .leaflet-container { background: #0d1117; }
+        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        .leaflet-control-zoom a:hover { color: var(--sky) !important; }
+        .leaflet-control-attribution { background: rgba(5,8,15,0.85) !important; color: var(--text-muted) !important; font-size: 0.65rem !important; }
+        .leaflet-control-attribution a { color: var(--text-muted) !important; }
+        .leaflet-popup-content-wrapper { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border-mid); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }
+        .leaflet-popup-tip { background: var(--bg-elevated); }
+        .leaflet-popup-content { margin: 0.65rem 0.85rem; }
+
+        /* ── Map legend ───────────────────────────────────────────────────── */
+        .map-legend {
+            position: absolute;
+            bottom: 26px;
+            right: 12px;
+            z-index: 1000;
+            background: rgba(8,13,26,0.93);
+            border: 1px solid var(--border-mid);
+            border-radius: 4px;
+            padding: 0.6rem 0.85rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            backdrop-filter: blur(8px);
+        }
+        .legend-title {
+            font-weight: 700;
+            font-size: 0.65rem;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            margin-bottom: 0.45rem;
+            color: var(--text-muted);
+        }
+        .legend-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.22rem; }
+        .legend-row:last-child { margin-bottom: 0; }
+        .legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+        @media (max-width: 768px) {
+            .pg-layout { grid-template-columns: 1fr; height: auto; }
+            .right-panel { height: 80vh; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="container">
+        <div class="nav-brand">
+            <a href="../" style="color:inherit;text-decoration:none;">← Geospatial<span style="color:var(--sky)">AWS</span></a>
+        </div>
+        <div style="color:var(--text-muted);font-size:0.85rem;font-weight:500;">Data Explorer</div>
+    </div>
+</nav>
+
+<div class="pg-layout">
+
+    <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+    <aside class="pg-controls">
+        <div>
+            <div class="chapter-tag">Chapters 3 – 4</div>
+            <h2 style="font-size:1rem;font-weight:700;color:#f0f6fc;margin-top:0.3rem;">Data Explorer</h2>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.3rem;line-height:1.5;">
+                Inspect sample datasets used throughout the book. View on map, browse the schema, and download for your own AWS workflows.
+            </p>
+        </div>
+
+        <div class="ctrl-section">
+            <div class="ctrl-label">Dataset</div>
+            <button class="opt-btn active" onclick="selectDataset('counties', this)">
+                <span class="op-icon">🗺</span>
+                <span class="op-info">
+                    <span class="op-name">US County Boundaries</span>
+                    <span class="op-desc">3,233 polygon features · GeoJSON</span>
+                </span>
+            </button>
+            <button class="opt-btn" onclick="selectDataset('addresses', this)">
+                <span class="op-icon">📬</span>
+                <span class="op-info">
+                    <span class="op-name">US Postal Addresses</span>
+                    <span class="op-desc">500 records · CSV</span>
+                </span>
+            </button>
+        </div>
+
+        <div class="ctrl-section">
+            <div class="ctrl-label">Download</div>
+            <a id="dl-link" href="../data/US_Counties.geojson" download="US_Counties.geojson" class="download-btn">
+                ⬇ &nbsp;US_Counties.geojson
+            </a>
+            <div id="dl-meta" style="font-size:0.7rem;color:var(--text-muted);margin-top:0.45rem;text-align:center;">
+                GeoJSON · EPSG:4326 · 7.8 MB
+            </div>
+        </div>
+
+        <div class="ctrl-section">
+            <div class="ctrl-label">Dataset Info</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-val" id="si-features">3,233</div>
+                    <div class="stat-lbl">Features</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val" id="si-format">GeoJSON</div>
+                    <div class="stat-lbl">Format</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val" id="si-crs">4326</div>
+                    <div class="stat-lbl">EPSG CRS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val" id="si-size">7.8 MB</div>
+                    <div class="stat-lbl">File Size</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ctrl-section">
+            <div class="ctrl-label">AWS Code — GeoPandas / Lambda</div>
+            <div class="code-block" id="aws-code"></div>
+        </div>
+    </aside>
+
+    <!-- ── Right panel ──────────────────────────────────────────────────────── -->
+    <div class="right-panel" id="right-panel">
+
+        <!-- Map -->
+        <div class="map-wrap">
+            <div id="map"></div>
+            <div class="load-overlay" id="map-loading">
+                <div class="spin"></div>
+                <div class="load-text" id="load-text">Loading county boundaries…</div>
+            </div>
+            <div class="map-legend" id="map-legend">
+                <div class="legend-title">Population</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#0ea5e9"></div><span>&gt; 1 M</span></div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#0891b2"></div><span>500 K – 1 M</span></div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#0e7490"></div><span>100 K – 500 K</span></div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#155e75"></div><span>50 K – 100 K</span></div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#164e63"></div><span>10 K – 50 K</span></div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#0c3147"></div><span>&lt; 10 K</span></div>
+            </div>
+        </div>
+
+        <!-- Data viewer panel -->
+        <div class="data-panel">
+            <div class="tab-bar">
+                <span class="tab-bar-title" id="panel-title">Features</span>
+                <button class="tab-btn active" id="tb-table" onclick="showTab('table')">Table</button>
+                <button class="tab-btn" id="tb-code" onclick="showTab('code')">Raw Format</button>
+            </div>
+
+            <!-- Table tab -->
+            <div class="tab-content active" id="tab-table">
+                <div class="table-controls">
+                    <input class="search-input" id="search-input" placeholder="Search…" oninput="onSearch(this.value)">
+                    <span class="page-info" id="page-info">—</span>
+                    <button class="page-btn" id="prev-btn" onclick="prevPage()" disabled>‹</button>
+                    <button class="page-btn" id="next-btn" onclick="nextPage()" disabled>›</button>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead id="tbl-head"></thead>
+                        <tbody id="tbl-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Raw format tab -->
+            <div class="tab-content" id="tab-code">
+                <div class="raw-code-wrap">
+                    <div class="raw-code" id="raw-code">Loading…</div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /right-panel -->
+</div><!-- /pg-layout -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Dataset config ────────────────────────────────────────────────────────────
+const DATASETS = {
+    counties: {
+        url: '../data/US_Counties.geojson',
+        dlHref: '../data/US_Counties.geojson',
+        dlName: 'US_Counties.geojson',
+        dlMeta: 'GeoJSON · EPSG:4326 · 7.8 MB',
+        features: '3,233', format: 'GeoJSON', crs: '4326', size: '7.8 MB',
+        cols: ['NAME','STATE_NAME','FIPS','POPULATION','SQMI','MED_AGE'],
+        fmt: {
+            POPULATION: v => v != null ? Number(v).toLocaleString() : '—',
+            SQMI:       v => v != null ? Number(v).toLocaleString(undefined,{maximumFractionDigits:1}) : '—',
+        }
+    },
+    addresses: {
+        url: '../data/postal-addresses-us-500.csv',
+        dlHref: '../data/postal-addresses-us-500.csv',
+        dlName: 'postal-addresses-us-500.csv',
+        dlMeta: 'CSV · 500 records · EPSG:N/A',
+        features: '500', format: 'CSV', crs: 'N/A', size: '~85 KB',
+        cols: ['first_name','last_name','company_name','city','state','zip','email'],
+        fmt: {}
+    }
+};
+
+const PAGE_SIZE = 50;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentDS   = 'counties';
+let allRows     = [];
+let filtRows    = [];
+let page        = 0;
+let sortCol     = null;
+let sortDir     = 1;
+let selRow      = null;
+
+let countiesGJ  = null;
+let countiesLyr = null;
+let fipsMap     = {};   // FIPS → Leaflet layer
+let addrRows    = null;
+
+// ── Map ───────────────────────────────────────────────────────────────────────
+const map = L.map('map').setView([38, -96], 4);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OSM contributors © CARTO',
+    subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+function popColor(pop) {
+    if (pop > 1000000) return '#0ea5e9';
+    if (pop > 500000)  return '#0891b2';
+    if (pop > 100000)  return '#0e7490';
+    if (pop > 50000)   return '#155e75';
+    if (pop > 10000)   return '#164e63';
+    return '#0c3147';
+}
+
+function countyStyle(f) {
+    return {
+        fillColor:   popColor(f.properties.POPULATION || 0),
+        fillOpacity: 0.78,
+        color:       '#1a2e48',
+        weight:      0.5
+    };
+}
+
+function makePopupHtml(p) {
+    const rows = [
+        ['County',      p.NAME],
+        ['State',       p.STATE_NAME],
+        ['FIPS',        p.FIPS],
+        ['Population',  Number(p.POPULATION || 0).toLocaleString()],
+        ['Area (sq mi)',Number(p.SQMI || 0).toLocaleString(undefined,{maximumFractionDigits:1})],
+        ['Median Age',  p.MED_AGE ?? '—'],
+        ['Pop / sq mi', p.POP_SQMI ?? '—'],
+    ];
+    return '<div>' + rows.map(([k,v]) =>
+        `<div style="display:flex;gap:0.5rem;font-size:0.79rem;line-height:1.75">
+            <span style="color:#4d6480;min-width:90px;flex-shrink:0">${k}</span>
+            <span style="color:#dde6f0;font-weight:600">${v}</span>
+        </div>`
+    ).join('') + '</div>';
+}
+
+async function loadCounties() {
+    if (countiesGJ) { restoreCountiesLayer(); return; }
+    document.getElementById('map-loading').classList.remove('hidden');
+    try {
+        const resp = await fetch(DATASETS.counties.url);
+        countiesGJ = await resp.json();
+        allRows  = countiesGJ.features.map(f => f.properties);
+        filtRows = [...allRows];
+        buildCountiesLayer();
+        renderTableHead();
+        renderTable();
+    } catch(e) {
+        document.getElementById('load-text').textContent = 'Load failed: ' + e.message;
+        return;
+    }
+    document.getElementById('map-loading').classList.add('hidden');
+}
+
+function buildCountiesLayer() {
+    fipsMap = {};
+    countiesLyr = L.geoJSON(countiesGJ, {
+        style: countyStyle,
+        onEachFeature(feature, layer) {
+            const p = feature.properties;
+            fipsMap[p.FIPS] = layer;
+            layer.bindPopup(makePopupHtml(p), {maxWidth: 260});
+            layer.on({
+                mouseover(e) {
+                    e.target.setStyle({weight: 2, color: '#0ea5e9', fillOpacity: 0.92});
+                    e.target.bringToFront();
+                },
+                mouseout(e) { countiesLyr.resetStyle(e.target); },
+                click(e) {
+                    // sync table selection
+                    const idx = filtRows.findIndex(r => r.FIPS === p.FIPS);
+                    if (idx >= 0) {
+                        selRow = idx;
+                        page = Math.floor(idx / PAGE_SIZE);
+                        renderTable();
+                        // scroll the row into view
+                        const tbody = document.getElementById('tbl-body');
+                        const rowEl = tbody.querySelector('tr.row-selected');
+                        if (rowEl) rowEl.scrollIntoView({block:'nearest'});
+                    }
+                }
+            });
+        }
+    }).addTo(map);
+}
+
+function restoreCountiesLayer() {
+    if (countiesLyr) countiesLyr.addTo(map);
+    document.getElementById('map-loading').classList.add('hidden');
+}
+
+// ── CSV parser ────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+    const rows = [];
+    let i = 0, headers = null;
+    while (i < text.length) {
+        const fields = [];
+        while (i < text.length && text[i] !== '\n' && text[i] !== '\r') {
+            if (text[i] === '"') {
+                i++;
+                let val = '';
+                while (i < text.length) {
+                    if (text[i] === '"' && text[i+1] === '"') { val += '"'; i += 2; }
+                    else if (text[i] === '"') { i++; break; }
+                    else { val += text[i++]; }
+                }
+                fields.push(val);
+                if (text[i] === ',') i++;
+            } else {
+                let val = '';
+                while (i < text.length && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') val += text[i++];
+                fields.push(val.trim());
+                if (text[i] === ',') i++;
+            }
+        }
+        while (i < text.length && (text[i] === '\n' || text[i] === '\r')) i++;
+        if (fields.length > 1 || (fields.length === 1 && fields[0])) {
+            if (!headers) { headers = fields; }
+            else {
+                const obj = {};
+                headers.forEach((h, j) => { obj[h] = fields[j] ?? ''; });
+                rows.push(obj);
+            }
+        }
+    }
+    return rows;
+}
+
+async function loadAddresses() {
+    if (addrRows) {
+        allRows = addrRows;
+        filtRows = [...allRows];
+        renderTableHead();
+        renderTable();
+        return;
+    }
+    try {
+        const resp = await fetch(DATASETS.addresses.url);
+        const text = await resp.text();
+        addrRows = parseCSV(text);
+        allRows  = addrRows;
+        filtRows = [...allRows];
+        renderTableHead();
+        renderTable();
+    } catch(e) {
+        console.error('CSV load failed', e);
+    }
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+function colLabel(c) {
+    return c.replace(/_/g, ' ');
+}
+
+function renderTableHead() {
+    const cols = DATASETS[currentDS].cols;
+    document.getElementById('tbl-head').innerHTML =
+        '<tr>' + cols.map(c => {
+            const cls = c === sortCol ? (sortDir === 1 ? 'sort-asc' : 'sort-desc') : '';
+            return `<th class="${cls}" onclick="onSort('${c}')">${colLabel(c)}</th>`;
+        }).join('') + '</tr>';
+}
+
+function renderTable() {
+    const ds   = DATASETS[currentDS];
+    const start = page * PAGE_SIZE;
+    const slice = filtRows.slice(start, start + PAGE_SIZE);
+
+    document.getElementById('tbl-body').innerHTML = slice.map((row, i) => {
+        const absIdx = start + i;
+        const sel = absIdx === selRow ? ' row-selected' : '';
+        const cells = ds.cols.map(c => {
+            const raw = row[c] ?? '';
+            const fmt = ds.fmt[c];
+            const val = fmt ? fmt(row[c]) : (raw || '—');
+            return `<td title="${raw}">${val}</td>`;
+        }).join('');
+        return `<tr class="${sel}" onclick="onRowClick(${absIdx})">${cells}</tr>`;
+    }).join('');
+
+    const total = filtRows.length;
+    const pages = Math.ceil(total / PAGE_SIZE);
+    document.getElementById('page-info').textContent =
+        total === 0 ? 'No results'
+                    : `${(start+1).toLocaleString()}–${Math.min(start+PAGE_SIZE, total).toLocaleString()} of ${total.toLocaleString()}`;
+    document.getElementById('prev-btn').disabled = page === 0;
+    document.getElementById('next-btn').disabled = page >= pages - 1;
+}
+
+function onRowClick(idx) {
+    selRow = idx;
+    const row = filtRows[idx];
+    if (currentDS === 'counties' && row && row.FIPS && fipsMap[row.FIPS]) {
+        const lyr = fipsMap[row.FIPS];
+        map.fitBounds(lyr.getBounds(), {maxZoom: 8, padding: [30, 30]});
+        lyr.openPopup();
+    }
+    renderTable();
+}
+
+function onSearch(q) {
+    const cols  = DATASETS[currentDS].cols;
+    const lower = q.trim().toLowerCase();
+    filtRows = lower
+        ? allRows.filter(r => cols.some(c => String(r[c] ?? '').toLowerCase().includes(lower)))
+        : [...allRows];
+    page = 0; selRow = null;
+    renderTable();
+}
+
+function onSort(col) {
+    sortDir  = col === sortCol ? -sortDir : 1;
+    sortCol  = col;
+    filtRows.sort((a, b) => {
+        const av = a[col] ?? '', bv = b[col] ?? '';
+        const an = parseFloat(av), bn = parseFloat(bv);
+        if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+        return String(av).localeCompare(String(bv)) * sortDir;
+    });
+    page = 0;
+    renderTableHead();
+    renderTable();
+}
+
+function prevPage() { if (page > 0) { page--; renderTable(); } }
+function nextPage() {
+    if (page < Math.ceil(filtRows.length / PAGE_SIZE) - 1) { page++; renderTable(); }
+}
+
+// ── Raw format tab ────────────────────────────────────────────────────────────
+function renderRawCode() {
+    const el = document.getElementById('raw-code');
+    if (currentDS === 'counties' && countiesGJ) {
+        const sample = {
+            type: countiesGJ.type,
+            name: countiesGJ.name,
+            crs: countiesGJ.crs,
+            features: countiesGJ.features.slice(0, 3)
+        };
+        const raw = JSON.stringify(sample, null, 2);
+        const suffix = `\n\n// … ${countiesGJ.features.length.toLocaleString()} total features (showing first 3)`;
+        el.textContent = raw + suffix;
+    } else if (currentDS === 'addresses' && addrRows) {
+        const headers = Object.keys(addrRows[0]);
+        const csvRows = addrRows.slice(0, 10).map(r =>
+            headers.map(h => `"${(r[h] || '').replace(/"/g,'""')}"`).join(',')
+        );
+        const suffix = `\n\n// … ${addrRows.length} total records (showing first 10)`;
+        el.textContent = [headers.join(','), ...csvRows].join('\n') + suffix;
+    } else {
+        el.textContent = 'Loading…';
+    }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(id) {
+    ['table','code'].forEach(t => {
+        document.getElementById('tb-' + t).classList.toggle('active', t === id);
+        document.getElementById('tab-' + t).classList.toggle('active', t === id);
+    });
+    if (id === 'code') renderRawCode();
+}
+
+// ── AWS code snippets ─────────────────────────────────────────────────────────
+const AWS_CODE = {
+counties: `<span class="cm"># AWS Glue / Lambda — US Counties (GeoPandas)</span>
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+
+<span class="cm"># Read directly from S3 via s3fs</span>
+gdf = gpd.read_file(
+    <span class="str">"s3://my-bucket/US_Counties.geojson"</span>
+)
+<span class="cm"># gdf.crs → EPSG:4326  (3,233 features)</span>
+
+<span class="cm"># Dissolve counties → state boundaries</span>
+states = gdf.dissolve(
+    by=<span class="str">"STATE_NAME"</span>,
+    aggfunc={<span class="str">"POPULATION"</span>: <span class="str">"sum"</span>,
+             <span class="str">"SQMI"</span>: <span class="str">"sum"</span>}
+).reset_index()
+
+<span class="cm"># Filter high-density counties</span>
+dense = gdf[gdf[<span class="str">"POP_SQMI"</span>] > <span class="num">1000</span>]
+
+<span class="cm"># Spatial join with another layer</span>
+joined = gpd.sjoin(
+    gdf, points_layer,
+    how=<span class="str">"left"</span>, predicate=<span class="str">"contains"</span>
+)
+
+dense.to_file(<span class="str">"/tmp/output.geojson"</span>)`,
+
+addresses: `<span class="cm"># AWS Lambda — Geocode with Location Service</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+<span class="kw">import</span> boto3
+
+<span class="cm"># Read CSV from S3</span>
+df = pd.read_csv(
+    <span class="str">"s3://my-bucket/postal-addresses-us-500.csv"</span>
+)
+
+location = boto3.client(<span class="str">"location"</span>)
+
+<span class="kw">def</span> <span class="fn">geocode</span>(row):
+    text = (
+        <span class="str">f"{row.address}, {row.city}, "</span>
+        <span class="str">f"{row.state} {row.zip}"</span>
+    )
+    r = location.search_place_index_for_text(
+        IndexName=<span class="str">"MyPlaceIndex"</span>,
+        Text=text, MaxResults=<span class="num">1</span>
+    )
+    pt = r[<span class="str">"Results"</span>][<span class="num">0</span>][<span class="str">"Place"</span>][<span class="str">"Geometry"</span>][<span class="str">"Point"</span>]
+    <span class="kw">return</span> pt[<span class="num">0</span>], pt[<span class="num">1</span>]   <span class="cm"># lon, lat</span>
+
+df[[<span class="str">"lon"</span>, <span class="str">"lat"</span>]] = df.apply(
+    geocode, axis=<span class="num">1</span>, result_type=<span class="str">"expand"</span>
+)
+
+<span class="cm"># Promote to GeoDataFrame for spatial ops</span>
+gdf = gpd.GeoDataFrame(
+    df,
+    geometry=gpd.points_from_xy(df.lon, df.lat),
+    crs=<span class="str">"EPSG:4326"</span>
+)
+gdf.to_file(<span class="str">"/tmp/geocoded.geojson"</span>)`
+};
+
+// ── Dataset switch ────────────────────────────────────────────────────────────
+function selectDataset(key, btn) {
+    document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDS = key;
+    sortCol = null; sortDir = 1;
+    page = 0; selRow = null;
+    document.getElementById('search-input').value = '';
+
+    const ds = DATASETS[key];
+    const dlLink = document.getElementById('dl-link');
+    dlLink.href     = ds.dlHref;
+    dlLink.download = ds.dlName;
+    dlLink.textContent = '⬇  ' + ds.dlName;
+    document.getElementById('dl-meta').textContent      = ds.dlMeta;
+    document.getElementById('si-features').textContent  = ds.features;
+    document.getElementById('si-format').textContent    = ds.format;
+    document.getElementById('si-crs').textContent       = ds.crs;
+    document.getElementById('si-size').textContent      = ds.size;
+    document.getElementById('aws-code').innerHTML       = AWS_CODE[key];
+    document.getElementById('panel-title').textContent  = key === 'counties' ? 'County Features' : 'Address Records';
+
+    const rp = document.getElementById('right-panel');
+    const legend = document.getElementById('map-legend');
+
+    if (key === 'counties') {
+        rp.classList.remove('addr-mode');
+        legend.style.display = '';
+        loadCounties();
+    } else {
+        rp.classList.add('addr-mode');
+        legend.style.display = 'none';
+        document.getElementById('map-loading').classList.add('hidden');
+        if (countiesLyr) map.removeLayer(countiesLyr);
+        loadAddresses();
+    }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.getElementById('aws-code').innerHTML = AWS_CODE.counties;
+loadCounties();
+</script>
+
+</body>
+</html>
