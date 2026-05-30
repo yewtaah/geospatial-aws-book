@@ -1,0 +1,16 @@
+# GitHub Pages Configuration
+
+title: Geospatial Data Analytics on AWS
+description: Interactive playgrounds and resources for the AWS geospatial book
+url: https://yewtaah.github.io/geospatial-aws-book
+baseurl: /geospatial-aws-book
+
+# Build settings
+theme: null
+markdown: kramdown
+
+# Exclude from processing
+exclude:
+  - README.md
+  - .gitignore
+  - CNAME

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Visualization Playground – Geospatial Data Analytics on AWS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        body { display: flex; flex-direction: column; min-height: 100vh; }
+        .pg-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            flex: 1;
+            height: calc(100vh - 57px);
+        }
+        .pg-controls {
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .pg-controls h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #f0f6fc;
+            text-align: left;
+            margin-bottom: 0;
+        }
+        .pg-controls p {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .control-group {
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+        .control-group label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.6rem;
+        }
+        .style-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .style-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.55rem 0.9rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .style-btn:hover { border-color: var(--sky); color: var(--sky); }
+        .style-btn.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.1); }
+        .color-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.15s;
+        }
+        .color-swatch.active, .color-swatch:hover { border-color: #f0f6fc; }
+        .range-input {
+            width: 100%;
+            accent-color: var(--primary);
+        }
+        .range-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.3rem;
+        }
+        #map { height: 100%; }
+        .leaflet-container { background: #0d1117; }
+        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        .leaflet-control-zoom a:hover { color: var(--primary) !important; }
+        .leaflet-control-attribution { background: rgba(13,14,26,0.8) !important; color: var(--text-muted) !important; }
+        .leaflet-control-attribution a { color: var(--text-muted) !important; }
+        .leaflet-popup-content-wrapper { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .leaflet-popup-tip { background: var(--bg-elevated); }
+        .chapter-tag {
+            font-size: 0.72rem;
+            color: var(--primary);
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        @media (max-width: 768px) {
+            .pg-layout { grid-template-columns: 1fr; grid-template-rows: auto 350px; height: auto; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><a href="../" style="color:inherit;text-decoration:none;">← Geospatial<span style="color:var(--primary)">AWS</span></a></div>
+            <div style="color:var(--text-muted);font-size:0.85rem;font-weight:500;">Map Visualization</div>
+        </div>
+    </nav>
+
+    <div class="pg-layout">
+        <aside class="pg-controls">
+            <div>
+                <div class="chapter-tag">Chapter 5</div>
+                <h2>Map Visualization</h2>
+                <p style="margin-top:0.4rem;">Customize styles, colors, and interactivity for geospatial layers on AWS-hosted data.</p>
+            </div>
+
+            <div class="control-group">
+                <label>Base Map Style</label>
+                <div class="style-options">
+                    <button class="style-btn active" data-style="dark" onclick="setBaseMap('dark', this)">Dark (CartoDB Dark Matter)</button>
+                    <button class="style-btn" data-style="light" onclick="setBaseMap('light', this)">Light (CartoDB Positron)</button>
+                    <button class="style-btn" data-style="osm" onclick="setBaseMap('osm', this)">OpenStreetMap</button>
+                    <button class="style-btn" data-style="topo" onclick="setBaseMap('topo', this)">Topo (ESRI)</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Layer Color</label>
+                <div class="color-row" id="colorSwatches">
+                    <div class="color-swatch active" style="background:#0ea5e9;" data-color="#0ea5e9" onclick="setColor('#0ea5e9', this)"></div>
+                    <div class="color-swatch" style="background:#4fc1e9;" data-color="#4fc1e9" onclick="setColor('#4fc1e9', this)"></div>
+                    <div class="color-swatch" style="background:#a2d952;" data-color="#a2d952" onclick="setColor('#a2d952', this)"></div>
+                    <div class="color-swatch" style="background:#f4a234;" data-color="#f4a234" onclick="setColor('#f4a234', this)"></div>
+                    <div class="color-swatch" style="background:#da68c5;" data-color="#da68c5" onclick="setColor('#da68c5', this)"></div>
+                    <div class="color-swatch" style="background:#48cfad;" data-color="#48cfad" onclick="setColor('#48cfad', this)"></div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Fill Opacity — <span id="opacityVal">0.4</span></label>
+                <input type="range" class="range-input" id="opacitySlider" min="0" max="1" step="0.05" value="0.4" oninput="setOpacity(this.value)">
+                <div class="range-label"><span>0</span><span>1</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>Stroke Weight — <span id="weightVal">1.5</span>px</label>
+                <input type="range" class="range-input" id="weightSlider" min="0.5" max="5" step="0.5" value="1.5" oninput="setWeight(this.value)">
+                <div class="range-label"><span>0.5</span><span>5</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>Sample Layer</label>
+                <div class="style-options">
+                    <button class="style-btn active" onclick="loadLayer('states', this)">US States</button>
+                    <button class="style-btn" onclick="loadLayer('grid', this)">Grid / Fishnet</button>
+                    <button class="style-btn" onclick="loadLayer('points', this)">Random Points</button>
+                </div>
+            </div>
+        </aside>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    // ── State ─────────────────────────────────────────────────────────────────
+    let currentColor = '#0ea5e9';
+    let currentOpacity = 0.4;
+    let currentWeight = 1.5;
+    let currentLayer = null;
+    let currentLayerType = 'states';
+
+    // ── Tile layers ───────────────────────────────────────────────────────────
+    const TILES = {
+        dark:  { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attr: '© OSM contributors © CARTO' },
+        light: { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attr: '© OSM contributors © CARTO' },
+        osm:   { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors' },
+        topo:  { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' }
+    };
+
+    const map = L.map('map').setView([38, -97], 4);
+    let tileLayer = L.tileLayer(TILES.dark.url, { attribution: TILES.dark.attr, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+
+    // ── Generate sample layers ────────────────────────────────────────────────
+    function getStyle() {
+        return { color: currentColor, fillColor: currentColor, fillOpacity: currentOpacity, weight: currentWeight };
+    }
+
+    function makeGrid() {
+        const features = [];
+        for (let lat = 25; lat < 50; lat += 5) {
+            for (let lon = -125; lon < -65; lon += 5) {
+                features.push({
+                    type: 'Feature',
+                    geometry: { type: 'Polygon', coordinates: [[[lon,lat],[lon+5,lat],[lon+5,lat+5],[lon,lat+5],[lon,lat]]] },
+                    properties: { cell: `${lat},${lon}`, area_km2: Math.round(Math.random() * 80000 + 20000) }
+                });
+            }
+        }
+        return { type: 'FeatureCollection', features };
+    }
+
+    function makePoints(n = 120) {
+        const features = [];
+        for (let i = 0; i < n; i++) {
+            const lat = 25 + Math.random() * 24;
+            const lon = -125 + Math.random() * 60;
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [lon, lat] },
+                properties: { id: i + 1, value: Math.round(Math.random() * 1000) }
+            });
+        }
+        return { type: 'FeatureCollection', features };
+    }
+
+    // Simplified US states outline (convex hull approximation for demo)
+    const US_STATES_APPROX = { type: 'FeatureCollection', features: [
+        { type: 'Feature', properties: { name: 'Pacific NW' }, geometry: { type: 'Polygon', coordinates: [[[-124,46],[-116,46],[-116,49],[-124,49],[-124,46]]] } },
+        { type: 'Feature', properties: { name: 'California' }, geometry: { type: 'Polygon', coordinates: [[[-124,32],[-114,32],[-114,42],[-124,42],[-124,32]]] } },
+        { type: 'Feature', properties: { name: 'Mountain West' }, geometry: { type: 'Polygon', coordinates: [[[-116,37],[-104,37],[-104,42],[-116,42],[-116,37]]] } },
+        { type: 'Feature', properties: { name: 'Southwest' }, geometry: { type: 'Polygon', coordinates: [[[-117,31],[-103,31],[-103,37],[-117,37],[-117,31]]] } },
+        { type: 'Feature', properties: { name: 'Great Plains' }, geometry: { type: 'Polygon', coordinates: [[[-104,37],[-96,37],[-96,49],[-104,49],[-104,37]]] } },
+        { type: 'Feature', properties: { name: 'Midwest' }, geometry: { type: 'Polygon', coordinates: [[[-96,36],[-84,36],[-84,47],[-96,47],[-96,36]]] } },
+        { type: 'Feature', properties: { name: 'South' }, geometry: { type: 'Polygon', coordinates: [[[-97,25],[-81,25],[-81,37],[-97,37],[-97,25]]] } },
+        { type: 'Feature', properties: { name: 'Southeast' }, geometry: { type: 'Polygon', coordinates: [[[-87,24],[-80,24],[-80,35],[-87,35],[-87,24]]] } },
+        { type: 'Feature', properties: { name: 'Mid-Atlantic' }, geometry: { type: 'Polygon', coordinates: [[[-84,36],[-74,36],[-74,45],[-84,45],[-84,36]]] } },
+        { type: 'Feature', properties: { name: 'Northeast' }, geometry: { type: 'Polygon', coordinates: [[[-79,40],[-67,40],[-67,47],[-79,47],[-79,40]]] } },
+    ]};
+
+    function loadLayer(type, btn) {
+        document.querySelectorAll('.pg-controls .style-btn').forEach(b => {
+            if (b.getAttribute('onclick') && b.getAttribute('onclick').includes('loadLayer')) b.classList.remove('active');
+        });
+        if (btn) btn.classList.add('active');
+        currentLayerType = type;
+        rebuildLayer();
+    }
+
+    function rebuildLayer() {
+        if (currentLayer) { map.removeLayer(currentLayer); currentLayer = null; }
+        const style = getStyle();
+        let geojson;
+        if (currentLayerType === 'states') geojson = US_STATES_APPROX;
+        else if (currentLayerType === 'grid') geojson = makeGrid();
+        else geojson = makePoints();
+
+        currentLayer = L.geoJSON(geojson, {
+            style: () => style,
+            pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, ...style }),
+            onEachFeature: (f, layer) => {
+                const entries = Object.entries(f.properties || {}).map(([k,v]) => `<div><b>${k}:</b> ${v}</div>`).join('');
+                layer.bindPopup(entries || 'No properties');
+            }
+        }).addTo(map);
+    }
+
+    // ── Controls ──────────────────────────────────────────────────────────────
+    function setBaseMap(key, btn) {
+        document.querySelectorAll('[data-style]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        map.removeLayer(tileLayer);
+        const t = TILES[key];
+        tileLayer = L.tileLayer(t.url, { attribution: t.attr, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+    }
+
+    function setColor(color, el) {
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        currentColor = color;
+        rebuildLayer();
+    }
+
+    function setOpacity(val) {
+        currentOpacity = parseFloat(val);
+        document.getElementById('opacityVal').textContent = val;
+        rebuildLayer();
+    }
+
+    function setWeight(val) {
+        currentWeight = parseFloat(val);
+        document.getElementById('weightVal').textContent = val;
+        rebuildLayer();
+    }
+
+    // Initial load
+    rebuildLayer();
+    </script>
+</body>
+</html>

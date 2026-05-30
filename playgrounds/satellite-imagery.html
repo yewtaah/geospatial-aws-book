@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satellite Imagery Analysis – Geospatial Data Analytics on AWS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        body { display: flex; flex-direction: column; min-height: 100vh; }
+        .pg-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            flex: 1;
+            height: calc(100vh - 57px);
+        }
+        .pg-controls {
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        .pg-controls h2 { font-size: 1rem; font-weight: 700; color: #f0f6fc; text-align: left; margin-bottom: 0; }
+        .pg-controls p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+        .control-group { border-top: 1px solid var(--border); padding-top: 1rem; }
+        .control-group label {
+            display: block; font-size: 0.72rem; font-weight: 700;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted); margin-bottom: 0.6rem;
+        }
+        .band-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+        .band-btn {
+            padding: 0.5rem 0.4rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .band-btn:hover { border-color: var(--sky); color: var(--sky); }
+        .band-btn.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.1); }
+        .range-input { width: 100%; accent-color: var(--sky); }
+        .range-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+        .info-box {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.9rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .info-box strong { color: #f0f6fc; display: block; margin-bottom: 0.25rem; font-size: 0.85rem; }
+        .chapter-tag { font-size: 0.72rem; color: var(--sky); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+
+        /* Canvas map panel */
+        .map-panel { position: relative; background: #0d1117; }
+        #satelliteCanvas { width: 100%; height: 100%; display: block; }
+        .canvas-overlay {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(13,14,26,0.85);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.6rem 0.9rem;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+        .canvas-overlay strong { color: #f0f6fc; }
+        .legend-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.4rem;
+        }
+        .legend-gradient {
+            flex: 1;
+            height: 8px;
+            border-radius: 2px;
+        }
+        .legend-label { font-size: 0.7rem; }
+
+        #map { height: 100%; }
+        .leaflet-container { background: #0d1117; }
+        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        .leaflet-control-zoom a:hover { color: var(--sky) !important; }
+        .leaflet-control-attribution { background: rgba(13,14,26,0.8) !important; color: var(--text-muted) !important; }
+        .leaflet-control-attribution a { color: var(--text-muted) !important; }
+
+        @media (max-width: 768px) {
+            .pg-layout { grid-template-columns: 1fr; grid-template-rows: auto 350px; height: auto; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><a href="../" style="color:inherit;text-decoration:none;">← Geospatial<span style="color:var(--sky)">AWS</span></a></div>
+            <div style="color:var(--text-muted);font-size:0.85rem;font-weight:500;">Satellite Imagery Analysis</div>
+        </div>
+    </nav>
+
+    <div class="pg-layout">
+        <aside class="pg-controls">
+            <div>
+                <div class="chapter-tag">Chapters 6 &amp; 7</div>
+                <h2>Satellite Imagery Analysis</h2>
+                <p style="margin-top:0.4rem;">Explore Sentinel-2 band combinations and spectral indices — the same techniques used with AWS SageMaker and Lambda in the book.</p>
+            </div>
+
+            <div class="control-group">
+                <label>Band Combination / Index</label>
+                <div class="band-grid">
+                    <button class="band-btn active" onclick="setMode('truecolor', this)">True Color<br><small style="opacity:0.6">B4/B3/B2</small></button>
+                    <button class="band-btn" onclick="setMode('falsecolor', this)">False Color<br><small style="opacity:0.6">B8/B4/B3</small></button>
+                    <button class="band-btn" onclick="setMode('ndvi', this)">NDVI<br><small style="opacity:0.6">Vegetation</small></button>
+                    <button class="band-btn" onclick="setMode('ndwi', this)">NDWI<br><small style="opacity:0.6">Water</small></button>
+                    <button class="band-btn" onclick="setMode('urban', this)">Urban<br><small style="opacity:0.6">B12/B11/B4</small></button>
+                    <button class="band-btn" onclick="setMode('swir', this)">SWIR<br><small style="opacity:0.6">B12/B8/B4</small></button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Brightness — <span id="brightnessVal">1.0</span>×</label>
+                <input type="range" class="range-input" id="brightnessSlider" min="0.5" max="2" step="0.1" value="1.0" oninput="setParam('brightness', this.value)">
+                <div class="range-label"><span>0.5×</span><span>2×</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>Contrast — <span id="contrastVal">1.0</span>×</label>
+                <input type="range" class="range-input" id="contrastSlider" min="0.5" max="3" step="0.1" value="1.0" oninput="setParam('contrast', this.value)">
+                <div class="range-label"><span>0.5×</span><span>3×</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>About This Mode</label>
+                <div class="info-box" id="modeInfo">
+                    <strong>True Color (B4/B3/B2)</strong>
+                    Natural-looking image using visible red, green, and blue bands. Best for human interpretation and land cover classification.
+                </div>
+            </div>
+        </aside>
+
+        <div class="map-panel" id="mapPanel">
+            <canvas id="satelliteCanvas"></canvas>
+            <div class="canvas-overlay">
+                <strong id="overlayTitle">True Color — Sentinel-2</strong>
+                <div class="legend-bar" id="legendBar" style="display:none;">
+                    <span class="legend-label" id="legendMin">Low</span>
+                    <div class="legend-gradient" id="legendGradient"></div>
+                    <span class="legend-label" id="legendMax">High</span>
+                </div>
+                <div style="margin-top:0.3rem; font-size:0.72rem;">Synthetic demo — Chapter 6 uses real AWS S3 data</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ── Synthetic satellite scene renderer ────────────────────────────────────
+    const canvas = document.getElementById('satelliteCanvas');
+    const ctx = canvas.getContext('2d');
+    const panel = document.getElementById('mapPanel');
+
+    let params = { mode: 'truecolor', brightness: 1.0, contrast: 1.0 };
+
+    // Resize canvas to fill panel
+    function resize() {
+        canvas.width = panel.clientWidth;
+        canvas.height = panel.clientHeight;
+        render();
+    }
+    window.addEventListener('resize', resize);
+
+    const MODE_INFO = {
+        truecolor: { title: 'True Color (B4/B3/B2)', desc: 'Natural-looking image using visible red, green, and blue bands. Best for human interpretation and land cover classification.', legend: false },
+        falsecolor: { title: 'False Color (B8/B4/B3)', desc: 'Near-infrared composite. Vegetation appears bright red, water dark blue. Standard for vegetation health monitoring.', legend: false },
+        ndvi: { title: 'NDVI — Normalized Difference Vegetation Index', desc: 'NDVI = (NIR − Red) / (NIR + Red). Values near 1 indicate dense vegetation; near 0 is bare soil; negative values are water.', legend: true, min: '-1', max: '+1', gradient: 'linear-gradient(to right, #3355aa, #eeeebb, #228822)' },
+        ndwi: { title: 'NDWI — Normalized Difference Water Index', desc: 'NDWI = (Green − NIR) / (Green + NIR). Highlights open water bodies in bright blue. Common in flood mapping workflows.', legend: true, min: '-1', max: '+1', gradient: 'linear-gradient(to right, #c8a060, #f0f0f0, #0077cc)' },
+        urban: { title: 'Urban Composite (B12/B11/B4)', desc: 'Shortwave infrared composite. Built-up areas appear in purple/magenta, vegetation in green, bare soil in brown.', legend: false },
+        swir: { title: 'SWIR Composite (B12/B8/B4)', desc: 'Shows fire burn scars (orange/red), moisture in soils and vegetation, and distinguishes between snow and cloud cover.', legend: false },
+    };
+
+    function setMode(mode, btn) {
+        document.querySelectorAll('.band-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        params.mode = mode;
+        const info = MODE_INFO[mode];
+        document.getElementById('modeInfo').innerHTML = `<strong>${info.title}</strong>${info.desc}`;
+        document.getElementById('overlayTitle').textContent = info.title;
+        const legendBar = document.getElementById('legendBar');
+        if (info.legend) {
+            legendBar.style.display = 'flex';
+            document.getElementById('legendMin').textContent = info.min;
+            document.getElementById('legendMax').textContent = info.max;
+            document.getElementById('legendGradient').style.background = info.gradient;
+        } else {
+            legendBar.style.display = 'none';
+        }
+        render();
+    }
+
+    function setParam(key, val) {
+        params[key] = parseFloat(val);
+        document.getElementById(key + 'Val').textContent = parseFloat(val).toFixed(1);
+        render();
+    }
+
+    // Pseudo-random noise seeded by (x, y, seed)
+    function noise(x, y, s) {
+        const n = Math.sin(x * 127.1 + y * 311.7 + s * 74.3) * 43758.5453;
+        return n - Math.floor(n);
+    }
+
+    function smoothNoise(x, y, scale, seed) {
+        const ix = x / scale, iy = y / scale;
+        const fx = ix - Math.floor(ix), fy = iy - Math.floor(iy);
+        const a = noise(Math.floor(ix), Math.floor(iy), seed);
+        const b = noise(Math.floor(ix)+1, Math.floor(iy), seed);
+        const c = noise(Math.floor(ix), Math.floor(iy)+1, seed);
+        const d = noise(Math.floor(ix)+1, Math.floor(iy)+1, seed);
+        const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+        return a + (b-a)*u + (c-a)*v + (a-b-c+d)*u*v;
+    }
+
+    function fbm(x, y, octaves, seed) {
+        let val = 0, amp = 0.5, freq = 1, max = 0;
+        for (let i = 0; i < octaves; i++) {
+            val += smoothNoise(x * freq, y * freq, 60, seed + i * 37) * amp;
+            max += amp; amp *= 0.5; freq *= 2;
+        }
+        return val / max;
+    }
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function applyBC(v, b, c) {
+        v = v * b;
+        v = (v - 0.5) * c + 0.5;
+        return clamp(v, 0, 1);
+    }
+
+    function render() {
+        const W = canvas.width, H = canvas.height;
+        if (W === 0 || H === 0) return;
+        const imgData = ctx.createImageData(W, H);
+        const d = imgData.data;
+        const { mode, brightness: B, contrast: C } = params;
+
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                // Synthetic band values
+                const veg    = fbm(x, y, 5, 1);   // vegetation signal
+                const water  = fbm(x, y, 4, 2) > 0.72 ? 1 : 0;
+                const urban  = fbm(x, y, 5, 3) > 0.78 ? 1 : 0;
+                const soil   = fbm(x, y, 4, 4);
+
+                // Approximate Sentinel-2 bands
+                const B2 = water ? 0.08 : urban ? 0.3 : applyBC(soil * 0.3 + veg * 0.05, 1, 1);
+                const B3 = water ? 0.06 : urban ? 0.28 : applyBC(soil * 0.25 + veg * 0.15, 1, 1);
+                const B4 = water ? 0.04 : urban ? 0.32 : applyBC(soil * 0.3 + veg * 0.06, 1, 1);
+                const B8 = water ? 0.02 : urban ? 0.2 : applyBC(veg * 0.7 + soil * 0.1, 1, 1); // NIR
+                const B11 = urban ? 0.55 : fbm(x, y, 4, 5) * 0.4;
+                const B12 = urban ? 0.6 : fbm(x, y, 4, 6) * 0.3;
+
+                let r, g, b;
+
+                if (mode === 'truecolor') {
+                    r = applyBC(B4, B, C); g = applyBC(B3, B, C); b = applyBC(B2, B, C);
+                } else if (mode === 'falsecolor') {
+                    r = applyBC(B8, B, C); g = applyBC(B4, B, C); b = applyBC(B3, B, C);
+                } else if (mode === 'ndvi') {
+                    const ndvi = (B8 - B4) / (B8 + B4 + 0.001);
+                    const t = (ndvi + 1) / 2;
+                    if (t < 0.4) { r = applyBC(0.2 + t*0.5, B, C); g = applyBC(0.2 + t*0.5, B, C); b = applyBC(0.6 - t, B, C); }
+                    else if (t < 0.55) { r = applyBC(0.85, B, C); g = applyBC(0.85, B, C); b = applyBC(0.6 - t, B, C); }
+                    else { r = applyBC((1-t)*0.4, B, C); g = applyBC(0.4 + t*0.5, B, C); b = applyBC((1-t)*0.3, B, C); }
+                } else if (mode === 'ndwi') {
+                    const ndwi = (B3 - B8) / (B3 + B8 + 0.001);
+                    const t = (ndwi + 1) / 2;
+                    if (t > 0.6) { r = 0; g = applyBC(0.3 + t*0.4, B, C); b = applyBC(0.6 + t*0.4, B, C); }
+                    else { r = applyBC(0.6 + (1-t)*0.3, B, C); g = applyBC(0.5 + (1-t)*0.3, B, C); b = applyBC(0.3, B, C); }
+                } else if (mode === 'urban') {
+                    r = applyBC(B12, B, C); g = applyBC(B11, B, C); b = applyBC(B4, B, C);
+                } else { // swir
+                    r = applyBC(B12, B, C); g = applyBC(B8, B, C); b = applyBC(B4, B, C);
+                }
+
+                const i = (y * W + x) * 4;
+                d[i]   = clamp(r * 255, 0, 255);
+                d[i+1] = clamp(g * 255, 0, 255);
+                d[i+2] = clamp(b * 255, 0, 255);
+                d[i+3] = 255;
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    resize();
+    </script>
+</body>
+</html>

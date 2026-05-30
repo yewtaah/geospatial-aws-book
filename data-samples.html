@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Data Samples – Geospatial Data Analytics on AWS</title>
+    <meta name="description" content="Browse and download free geospatial datasets from the book. GeoJSON, CSV, and Cloud-Optimized GeoTIFF samples.">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        body { display: flex; flex-direction: column; min-height: 100vh; }
+
+        .data-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            flex: 1;
+            height: calc(100vh - 56px);
+            position: sticky;
+            top: 56px;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ─────────────────────────────────────────────────────── */
+        .sidebar {
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 1.1rem 1.25rem 0.9rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .sidebar-header h2 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #f0f6fc;
+            text-align: left;
+            margin-bottom: 0.2rem;
+            letter-spacing: -0.01em;
+        }
+
+        .sidebar-header p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Filter tabs */
+        .filter-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .filter-tab {
+            flex: 1;
+            font-family: 'Courier New', monospace;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 0.65rem 0.4rem;
+            cursor: pointer;
+            border: none;
+            border-bottom: 2px solid transparent;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.15s;
+        }
+
+        .filter-tab:hover { color: var(--text); background: rgba(14,165,233,0.04); }
+        .filter-tab.active { color: var(--sky); border-bottom-color: var(--sky); background: rgba(14,165,233,0.05); }
+
+        /* Dataset list */
+        .dataset-list { overflow-y: auto; flex: 1; }
+
+        .dataset-item {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.12s;
+            position: relative;
+        }
+
+        .dataset-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: transparent;
+            transition: background 0.12s;
+        }
+
+        .dataset-item:hover { background: var(--bg-card); }
+        .dataset-item.active { background: var(--bg-elevated); }
+        .dataset-item.active::before { background: var(--sky); }
+
+        .dataset-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .dataset-item h3 {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #f0f6fc;
+            line-height: 1.35;
+        }
+
+        .dataset-item p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .dataset-meta {
+            display: flex;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-chip {
+            font-family: 'Courier New', monospace;
+            font-size: 0.62rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--bg);
+            border: 1px solid var(--border-mid);
+            border-radius: 2px;
+            padding: 0.1rem 0.4rem;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── Map panel ───────────────────────────────────────────────────── */
+        .map-panel { display: flex; flex-direction: column; background: var(--bg); position: relative; }
+        #map { flex: 1; z-index: 1; }
+
+        /* Map empty state */
+        .map-empty {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .map-empty-icon {
+            font-size: 2rem;
+            opacity: 0.2;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Info panel */
+        .info-panel {
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            padding: 1rem 1.25rem;
+            display: none;
+            flex-shrink: 0;
+        }
+
+        .info-panel.visible {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .info-panel-text h3 {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #f0f6fc;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.01em;
+        }
+
+        .info-panel-text p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .info-panel-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .info-meta-item {
+            font-family: 'Courier New', monospace;
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .info-meta-item strong { color: var(--text); }
+
+        .info-panel-actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        /* Loading */
+        .loading-indicator {
+            display: none;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-mid);
+            border-radius: 2px;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.75rem;
+            font-family: 'Courier New', monospace;
+            color: var(--text-muted);
+            z-index: 1000;
+            letter-spacing: 0.05em;
+        }
+
+        /* Scrollbar */
+        .dataset-list::-webkit-scrollbar { width: 3px; }
+        .dataset-list::-webkit-scrollbar-track { background: transparent; }
+        .dataset-list::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+
+        /* ── Leaflet dark overrides ───────────────────────────────────────── */
+        .leaflet-container { background: #05080f; }
+
+        .leaflet-popup-content-wrapper {
+            background: var(--bg-elevated);
+            color: var(--text);
+            border: 1px solid var(--border-mid);
+            border-radius: 2px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+
+        .leaflet-popup-tip { background: var(--bg-elevated); }
+
+        .leaflet-popup-content {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            line-height: 1.65;
+            color: var(--text-muted);
+        }
+
+        .leaflet-popup-content strong { color: #f0f6fc; display: block; margin-bottom: 0.25rem; font-size: 0.82rem; font-family: -apple-system, sans-serif; }
+
+        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text-muted) !important; border-color: var(--border-mid) !important; }
+        .leaflet-control-zoom a:hover { background: var(--bg-card) !important; color: var(--sky) !important; }
+        .leaflet-control-attribution { background: rgba(5,8,15,0.8) !important; color: var(--text-muted) !important; font-size: 10px !important; }
+        .leaflet-control-attribution a { color: var(--text-muted) !important; }
+
+        @media (max-width: 900px) {
+            .data-layout { grid-template-columns: 1fr; grid-template-rows: auto 400px; height: auto; position: static; }
+            .sidebar { max-height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><a href="index.html" style="color:inherit;text-decoration:none;">Geospatial<span style="color:var(--sky)">AWS</span></a></div>
+            <div style="font-family:'Courier New',monospace;font-size:0.7rem;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;">Free Data Samples</div>
+        </div>
+    </nav>
+
+    <div class="data-layout">
+
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Dataset Catalog</h2>
+                <p>Select a dataset to preview on the map</p>
+            </div>
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all">All</button>
+                <button class="filter-tab" data-filter="vector">Vector</button>
+                <button class="filter-tab" data-filter="tabular">Tabular</button>
+                <button class="filter-tab" data-filter="raster">Raster</button>
+            </div>
+            <div class="dataset-list" id="datasetList"></div>
+        </aside>
+
+        <div class="map-panel">
+            <div id="map">
+                <div class="map-empty" id="mapEmpty">
+                    <div class="map-empty-icon">◈</div>
+                    <div>Select a dataset to preview</div>
+                </div>
+            </div>
+            <div class="loading-indicator" id="loadingIndicator">Loading…</div>
+            <div class="info-panel" id="infoPanel">
+                <div class="info-panel-text">
+                    <h3 id="infoPanelTitle"></h3>
+                    <p id="infoPanelDesc"></p>
+                    <div class="info-panel-meta" id="infoPanelMeta"></div>
+                </div>
+                <div class="info-panel-actions">
+                    <a href="#" id="downloadBtn" class="btn btn-primary btn-small" download>Download ↓</a>
+                    <span id="infoPanelSize" style="font-family:'Courier New',monospace;font-size:0.72rem;color:var(--text-muted);"></span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+    <script>
+    // ── Map init ──────────────────────────────────────────────────────────────
+    const map = L.map('map', { zoomControl: true }).setView([38, -97], 4);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    let activeLayer = null;
+    let activeDatasetId = null;
+
+    // Layer styles matching the steel-blue/cyan palette
+    const TYPE_STYLE = {
+        vector:  { color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.12, weight: 1.5 },
+        tabular: { color: '#06b6d4', fillColor: '#06b6d4', fillOpacity: 0.9 },
+        raster:  { color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.08, weight: 1.5, dashArray: '5 4' }
+    };
+
+    // ── Catalog ───────────────────────────────────────────────────────────────
+    let catalog = [];
+
+    fetch('data/catalog.json')
+        .then(r => r.json())
+        .then(data => { catalog = data.datasets; renderList(catalog); })
+        .catch(() => {
+            document.getElementById('datasetList').innerHTML =
+                '<p style="padding:1.25rem;color:var(--text-muted);font-size:0.8rem;font-family:\'Courier New\',monospace;">catalog.json not found</p>';
+        });
+
+    // ── Render sidebar ────────────────────────────────────────────────────────
+    function renderList(datasets) {
+        const list = document.getElementById('datasetList');
+        if (!datasets.length) {
+            list.innerHTML = '<p style="padding:1.25rem;color:var(--text-muted);font-size:0.8rem;">No datasets match this filter.</p>';
+            return;
+        }
+        list.innerHTML = datasets.map(d => `
+            <div class="dataset-item${d.id === activeDatasetId ? ' active' : ''}" data-id="${d.id}" onclick="selectDataset('${d.id}')">
+                <div class="dataset-item-header">
+                    <h3>${d.title}</h3>
+                    <span class="badge badge-${d.type}">${d.format}</span>
+                </div>
+                <p>${d.description.length > 85 ? d.description.slice(0, 85) + '…' : d.description}</p>
+                <div class="dataset-meta">
+                    <span class="meta-chip">${d.size}</span>
+                    ${d.features ? `<span class="meta-chip">${d.features.toLocaleString()} feat.</span>` : ''}
+                    ${d.chapter ? `<span class="meta-chip">${d.chapter}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ── Filter tabs ───────────────────────────────────────────────────────────
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function () {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            const f = this.dataset.filter;
+            renderList(f === 'all' ? catalog : catalog.filter(d => d.type === f));
+        });
+    });
+
+    // ── Select dataset ────────────────────────────────────────────────────────
+    function selectDataset(id) {
+        const dataset = catalog.find(d => d.id === id);
+        if (!dataset) return;
+
+        document.querySelectorAll('.dataset-item').forEach(el => el.classList.remove('active'));
+        const item = document.querySelector(`.dataset-item[data-id="${id}"]`);
+        if (item) item.classList.add('active');
+        activeDatasetId = id;
+
+        if (activeLayer) { map.removeLayer(activeLayer); activeLayer = null; }
+        document.getElementById('mapEmpty').style.display = 'none';
+
+        document.getElementById('infoPanelTitle').textContent = dataset.title;
+        document.getElementById('infoPanelDesc').textContent = dataset.description;
+        document.getElementById('infoPanelSize').textContent = dataset.size;
+        document.getElementById('downloadBtn').href = dataset.url;
+
+        const meta = [
+            { l: 'FORMAT', v: dataset.format },
+            { l: 'CRS', v: dataset.crs },
+            { l: 'SOURCE', v: dataset.source },
+            dataset.features ? { l: 'FEATURES', v: dataset.features.toLocaleString() } : null,
+            dataset.resolution ? { l: 'RESOLUTION', v: dataset.resolution } : null,
+        ].filter(Boolean);
+
+        document.getElementById('infoPanelMeta').innerHTML = meta.map(m =>
+            `<div class="info-meta-item"><strong>${m.v}</strong>&nbsp;${m.l}</div>`
+        ).join('');
+        document.getElementById('infoPanel').classList.add('visible');
+
+        if (dataset.type === 'raster')       loadRasterFootprint(dataset);
+        else if (dataset.type === 'vector')  loadGeoJSON(dataset);
+        else if (dataset.type === 'tabular') loadCSV(dataset);
+
+        if (dataset.bbox) {
+            const [w, s, e, n] = dataset.bbox;
+            map.flyToBounds([[s, w], [n, e]], { padding: [40, 40], duration: 0.7 });
+        }
+    }
+
+    function loadGeoJSON(dataset) {
+        setLoading(true);
+        const style = TYPE_STYLE[dataset.type];
+        fetch(dataset.url)
+            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+            .then(data => {
+                activeLayer = L.geoJSON(data, {
+                    style: () => style,
+                    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4, ...style }),
+                    onEachFeature: (f, layer) => {
+                        if (f.properties) {
+                            const rows = Object.entries(f.properties).slice(0, 6)
+                                .map(([k, v]) => `<div>${k}: ${v}</div>`).join('');
+                            layer.bindPopup(`<strong>${dataset.title}</strong>${rows}`);
+                        }
+                    }
+                }).addTo(map);
+                setLoading(false);
+            })
+            .catch(() => { setLoading(false); showPlaceholder(dataset); });
+    }
+
+    function loadCSV(dataset) {
+        setLoading(true);
+        Papa.parse(dataset.url, {
+            download: true, header: true, dynamicTyping: true,
+            complete: function (results) {
+                const latF = dataset.latField || 'lat';
+                const lonF = dataset.lonField || 'lon';
+                const markers = [];
+                results.data.forEach(row => {
+                    const lat = parseFloat(row[latF]), lon = parseFloat(row[lonF]);
+                    if (isNaN(lat) || isNaN(lon)) return;
+                    const popup = Object.keys(row).filter(k => k !== latF && k !== lonF).slice(0, 6)
+                        .map(k => `<div>${k}: ${row[k]}</div>`).join('');
+                    markers.push(L.circleMarker([lat, lon], { radius: 4, color: '#06b6d4', fillColor: '#06b6d4', fillOpacity: 0.85, weight: 1 })
+                        .bindPopup(`<strong>${dataset.title}</strong>${popup}`));
+                });
+                activeLayer = L.layerGroup(markers).addTo(map);
+                setLoading(false);
+            },
+            error: () => { setLoading(false); showPlaceholder(dataset); }
+        });
+    }
+
+    function loadRasterFootprint(dataset) {
+        const style = TYPE_STYLE.raster;
+        const popup = `<strong>${dataset.title}</strong><div>COG — click Download to access the full file</div>`;
+        if (dataset.footprint) {
+            activeLayer = L.geoJSON(dataset.footprint, { style: () => style }).bindPopup(popup).addTo(map);
+        } else if (dataset.bbox) {
+            const [w, s, e, n] = dataset.bbox;
+            activeLayer = L.rectangle([[s, w], [n, e]], style).bindPopup(popup).addTo(map);
+        }
+    }
+
+    function showPlaceholder(dataset) {
+        if (!dataset.bbox) return;
+        const [w, s, e, n] = dataset.bbox;
+        activeLayer = L.rectangle([[s, w], [n, e]], { ...TYPE_STYLE[dataset.type], dashArray: '8 5', fillOpacity: 0.05 })
+            .bindPopup(`<strong>${dataset.title}</strong><div>Configure your S3 bucket URL in data/catalog.json to enable live loading.</div>`)
+            .addTo(map).openPopup();
+    }
+
+    function setLoading(on) { document.getElementById('loadingIndicator').style.display = on ? 'block' : 'none'; }
+    </script>
+</body>
+</html>

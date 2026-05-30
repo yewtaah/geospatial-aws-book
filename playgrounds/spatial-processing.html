@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spatial Data Processing – Geospatial Data Analytics on AWS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .playground-container {
+            max-width: 900px;
+            margin: 3rem auto;
+            padding: 0 20px;
+        }
+        .playground-content {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-left: 2px solid var(--steel);
+            border-radius: 2px;
+            padding: 2rem;
+        }
+        .playground-content h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #f0f6fc;
+            margin-bottom: 0.4rem;
+            letter-spacing: -0.02em;
+        }
+        .playground-content > p {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            font-size: 0.88rem;
+        }
+        .playground-demo {
+            background: var(--bg);
+            padding: 3rem 2rem;
+            border-radius: 2px;
+            margin: 2rem 0;
+            min-height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px dashed var(--border-mid);
+        }
+        .demo-placeholder {
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .demo-placeholder p { font-size: 0.85rem; margin-top: 0.5rem; }
+        .playground-content h2 {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--cyan);
+            margin: 2rem 0 0.6rem;
+        }
+        .playground-content ul {
+            list-style: none;
+            padding: 0;
+            border-top: 1px solid var(--border);
+        }
+        .playground-content ul li {
+            padding: 0.55rem 0 0.55rem 1.1rem;
+            position: relative;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .playground-content ul li:last-child { border-bottom: none; }
+        .playground-content ul li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 3px;
+            background: var(--steel);
+            border-radius: 50%;
+        }
+        .playground-content a { color: var(--sky); }
+        .playground-content a:hover { color: var(--cyan); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><a href="../" style="color:inherit;text-decoration:none;">← Geospatial<span style="color:var(--primary)">AWS</span></a></div>
+            <div style="color:var(--text-muted); font-size:0.85rem; font-weight:500;">Spatial Data Processing</div>
+        </div>
+    </nav>
+
+    <div class="playground-container">
+        <div class="playground-content">
+            <h1>Spatial Data Processing Playground</h1>
+            <p>An interactive demo of geospatial data processing patterns on AWS — coming soon.</p>
+
+            <div class="playground-demo">
+                <div class="demo-placeholder">
+                    <div style="font-size:2.5rem; margin-bottom:0.5rem;">⚙️</div>
+                    <p>Interactive demo will load here</p>
+                    <p style="font-size:0.8rem; opacity:0.6;">Check back soon for hands-on examples</p>
+                </div>
+            </div>
+
+            <h2>What You'll Learn</h2>
+            <ul>
+                <li>Data ingestion and transformation pipelines</li>
+                <li>Working with GeoJSON and spatial formats</li>
+                <li>Processing with AWS Lambda and Glue</li>
+                <li>Performance optimization at scale</li>
+            </ul>
+
+            <h2>Resources</h2>
+            <ul>
+                <li><a href="https://github.com/yewtaah/geospatial-aws-book-code" target="_blank">View code examples on GitHub</a></li>
+                <li><a href="https://docs.aws.amazon.com/location/" target="_blank">AWS Location Service documentation</a></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

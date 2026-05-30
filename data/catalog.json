@@ -1,0 +1,99 @@
+{
+  "datasets": [
+    {
+      "id": "us-counties",
+      "title": "US County Boundaries",
+      "description": "Simplified US county boundary polygons. Useful for choropleth maps, spatial joins, and administrative aggregation examples from Chapter 4.",
+      "format": "GeoJSON",
+      "type": "vector",
+      "size": "2.1 MB",
+      "crs": "EPSG:4326",
+      "features": 3233,
+      "source": "US Census TIGER/Line",
+      "chapter": "Chapter 4",
+      "url": "https://YOUR-BUCKET.s3.amazonaws.com/samples/us-counties.geojson",
+      "bbox": [-125, 24, -66, 50]
+    },
+    {
+      "id": "aws-infrastructure",
+      "title": "AWS Region & Edge Locations",
+      "description": "Point dataset of AWS regions, availability zones, and edge locations worldwide. Demonstrates geocoding and point clustering techniques from Chapter 3.",
+      "format": "CSV",
+      "type": "tabular",
+      "size": "48 KB",
+      "crs": "EPSG:4326",
+      "features": 310,
+      "source": "AWS Infrastructure",
+      "chapter": "Chapter 3",
+      "url": "https://YOUR-BUCKET.s3.amazonaws.com/samples/aws-infrastructure.csv",
+      "latField": "latitude",
+      "lonField": "longitude",
+      "bbox": [-180, -90, 180, 90]
+    },
+    {
+      "id": "urban-greenspace",
+      "title": "Urban Green Space Index",
+      "description": "NDVI-derived urban greenspace index for major US cities. CSV with coordinates and computed metrics, illustrating the raster-to-vector workflow from Chapter 7.",
+      "format": "CSV",
+      "type": "tabular",
+      "size": "850 KB",
+      "crs": "EPSG:4326",
+      "features": 12400,
+      "source": "Sentinel-2 / Derived",
+      "chapter": "Chapter 7",
+      "url": "https://YOUR-BUCKET.s3.amazonaws.com/samples/urban-greenspace-index.csv",
+      "latField": "lat",
+      "lonField": "lon",
+      "bbox": [-125, 24, -66, 50]
+    },
+    {
+      "id": "landsat-footprints",
+      "title": "Landsat Scene Footprints",
+      "description": "WRS-2 path/row grid footprints for Landsat 8/9 scenes available on AWS Open Data. Demonstrates querying the public Landsat catalog from Chapter 6.",
+      "format": "GeoJSON",
+      "type": "vector",
+      "size": "5.4 MB",
+      "crs": "EPSG:4326",
+      "features": 1024,
+      "source": "USGS / AWS Open Data",
+      "chapter": "Chapter 6",
+      "url": "https://YOUR-BUCKET.s3.amazonaws.com/samples/landsat-footprints.geojson",
+      "bbox": [-130, 20, -60, 55]
+    },
+    {
+      "id": "elevation-sample",
+      "title": "Digital Elevation Model (COG)",
+      "description": "Cloud-Optimized GeoTIFF of 30m SRTM elevation for a sample region. Demonstrates COG access patterns and range requests on S3 from Chapter 8.",
+      "format": "COG",
+      "type": "raster",
+      "size": "24 MB",
+      "crs": "EPSG:4326",
+      "resolution": "30m",
+      "source": "NASA SRTM",
+      "chapter": "Chapter 8",
+      "url": "https://YOUR-BUCKET.s3.amazonaws.com/samples/elevation-sample.tif",
+      "footprint": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[[-106, 34], [-100, 34], [-100, 38], [-106, 38], [-106, 34]]]
+        }
+      },
+      "bbox": [-106, 34, -100, 38]
+    },
+    {
+      "id": "stac-metadata",
+      "title": "STAC Item Collection",
+      "description": "Sample STAC (SpatioTemporal Asset Catalog) metadata for Sentinel-2 scenes. Shows how to work with open geospatial standards and AWS Earth Observation catalog.",
+      "format": "GeoJSON",
+      "type": "vector",
+      "size": "340 KB",
+      "crs": "EPSG:4326",
+      "features": 48,
+      "source": "Element84 / AWS",
+      "chapter": "Chapter 6",
+      "url": "https://YOUR-BUCKET.s3.amazonaws.com/samples/stac-collection.geojson",
+      "bbox": [-125, 24, -66, 50]
+    }
+  ]
+}

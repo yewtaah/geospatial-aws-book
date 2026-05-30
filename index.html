@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geospatial Data Analytics on AWS</title>
+    <meta name="description" content="Discover how to manage and analyze geospatial data in the cloud. Published by Packt. By Scott Bateman, Janahan Gnanachandran, and Jeff DeMuth.">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">Geospatial<span>AWS</span></div>
+            <ul class="nav-links">
+                <li><a href="#book">Book</a></li>
+                <li><a href="#data">Data Samples</a></li>
+                <li><a href="#playgrounds">Playgrounds</a></li>
+                <li><a href="#resources">Resources</a></li>
+                <li><a href="#about">Authors</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- ── Hero ────────────────────────────────────────────────────────────── -->
+    <header class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="publisher-badge">Packt Publishing &nbsp;/&nbsp; 1st Edition</div>
+                <h1>Geospatial Data Analytics<br>on <em>AWS</em></h1>
+                <p class="subtitle">Discover how to manage and analyze geospatial data in the cloud</p>
+                <div class="cta-buttons">
+                    <a href="#book" class="btn btn-primary">Get the Book</a>
+                    <a href="#data" class="btn btn-secondary">Browse Free Datasets</a>
+                </div>
+                <div class="hero-authors">
+                    By &nbsp;<strong>Scott Bateman</strong>&nbsp; / &nbsp;<strong>Janahan Gnanachandran</strong>&nbsp; / &nbsp;<strong>Jeff DeMuth</strong>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Book ────────────────────────────────────────────────────────────── -->
+    <section id="book" class="section">
+        <div class="container">
+            <p class="section-label">The Book</p>
+            <h2>About This Book</h2>
+            <div class="book-grid">
+                <div class="book-cover">
+                    <img src="assets/book-cover.jpg" alt="Geospatial Data Analytics on AWS"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <div class="book-cover-placeholder" style="display:none;">
+                        <span style="font-size:2rem;color:var(--text-dim);">■</span>
+                        <div class="book-edition">1st Edition</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);text-align:center;padding:0 1rem;line-height:1.5;">Geospatial Data<br>Analytics on AWS</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="book-edition">Packt Publishing — 1st Edition</div>
+                    <p class="book-description">
+                        A comprehensive guide to leveraging AWS services for geospatial data processing, analysis, and visualization — from ingestion pipelines to production-ready cloud architectures.
+                    </p>
+                    <ul class="book-topics">
+                        <li>AWS geospatial services and cloud infrastructure</li>
+                        <li>Data ingestion and processing pipelines</li>
+                        <li>Cloud-Optimized GeoTIFFs, STAC, and open standards</li>
+                        <li>Spatial analysis and machine learning on AWS</li>
+                        <li>Visualization with QuickSight and open-source tools</li>
+                        <li>Real-world case studies and production patterns</li>
+                    </ul>
+                    <div class="book-links">
+                        <a href="https://www.amazon.com/Geospatial-Data-Analytics-AWS-geospatial/dp/1804613827/" target="_blank" class="btn btn-primary">Buy on Amazon</a>
+                        <a href="https://www.packtpub.com/en-us/product/geospatial-data-analytics-on-aws-9781804610572" target="_blank" class="btn btn-secondary">View on Packt</a>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <div class="stat-number">400+</div>
+                            <div class="stat-label">Pages</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">12</div>
+                            <div class="stat-label">Chapters</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">30+</div>
+                            <div class="stat-label">Examples</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">3</div>
+                            <div class="stat-label">Authors</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- ── Data Samples ────────────────────────────────────────────────────── -->
+    <section id="data" class="section bg-surface">
+        <div class="container">
+            <p class="section-label">Free Downloads</p>
+            <h2>Sample Datasets</h2>
+            <p class="section-intro">Real geospatial datasets from the book. Browse them live on an interactive map, then download for use in your own projects.</p>
+            <div class="data-highlight">
+                <div>
+                    <h3>6 datasets · 3 formats · no sign-up required</h3>
+                    <p>GeoJSON vector features, CSV point data, and Cloud-Optimized GeoTIFFs — all hosted on S3 and free to download.</p>
+                    <div class="data-badges">
+                        <span class="badge badge-vector">GeoJSON</span>
+                        <span class="badge badge-tabular">CSV</span>
+                        <span class="badge badge-raster">COG / Raster</span>
+                    </div>
+                </div>
+                <a href="data-samples.html" class="btn btn-primary">Browse &amp; Download →</a>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- ── Playgrounds ─────────────────────────────────────────────────────── -->
+    <section id="playgrounds" class="section">
+        <div class="container">
+            <p class="section-label">Hands-On</p>
+            <h2>Interactive Playgrounds</h2>
+            <p class="section-intro">Live, in-browser demos that bring the book's concepts to life. No AWS account required.</p>
+            <div class="playground-grid">
+                <div class="playground-card">
+                    <div class="card-label">Ch. 3–4</div>
+                    <h3>Spatial Data Processing</h3>
+                    <p>Geospatial data transformation and processing pipelines on AWS Lambda and Glue.</p>
+                    <a href="playgrounds/spatial-processing.html" class="btn btn-small btn-secondary">Open →</a>
+                </div>
+                <div class="playground-card">
+                    <div class="card-label">Ch. 5</div>
+                    <h3>Map Visualization</h3>
+                    <p>Build and style interactive geospatial maps. Adjust layers, colors, and base map providers.</p>
+                    <a href="playgrounds/map-viz.html" class="btn btn-small btn-secondary">Open →</a>
+                </div>
+                <div class="playground-card">
+                    <div class="card-label">Ch. 6–7</div>
+                    <h3>Satellite Imagery Analysis</h3>
+                    <p>Explore Sentinel-2 band combinations and spectral indices used with SageMaker on AWS.</p>
+                    <a href="playgrounds/satellite-imagery.html" class="btn btn-small btn-secondary">Open →</a>
+                </div>
+                <div class="playground-card">
+                    <div class="card-label">Ch. 3–4</div>
+                    <h3>Pipeline Builder</h3>
+                    <p>Drag-and-drop AWS service components to design geospatial ETL pipelines visually.</p>
+                    <a href="playgrounds/pipeline-builder.html" class="btn btn-small btn-secondary">Open →</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- ── Resources ───────────────────────────────────────────────────────── -->
+    <section id="resources" class="section bg-surface">
+        <div class="container">
+            <p class="section-label">Resources</p>
+            <h2>Code &amp; References</h2>
+            <div class="resources-grid">
+                <div class="resource-card">
+                    <div class="card-label">GitHub</div>
+                    <h3>Code Examples</h3>
+                    <p>All code samples from the book, organized by chapter and ready to run in your AWS environment.</p>
+                    <a href="https://github.com/yewtaah/geospatial-aws-book-code" target="_blank" class="btn btn-small btn-secondary">View Repository →</a>
+                </div>
+                <div class="resource-card">
+                    <div class="card-label">O'Reilly</div>
+                    <h3>Read Online</h3>
+                    <p>Access the full book on O'Reilly Learning — includes all code, figures, and chapter notes.</p>
+                    <a href="https://www.oreilly.com/library/view/geospatial-data-analytics/9781804613825/" target="_blank" class="btn btn-small btn-secondary">Read on O'Reilly →</a>
+                </div>
+                <div class="resource-card">
+                    <div class="card-label">PDF</div>
+                    <h3>Chapter Guides</h3>
+                    <p>Downloadable cheat sheets and supplementary reference materials for each chapter.</p>
+                    <a href="#" class="btn btn-small btn-secondary">Download →</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- ── Authors ─────────────────────────────────────────────────────────── -->
+    <section id="about" class="section">
+        <div class="container">
+            <p class="section-label">Authors</p>
+            <h2>Who Wrote This Book</h2>
+            <div class="authors-grid">
+
+                <div class="author-row">
+                    <div class="author-photo-cell">
+                        <img src="assets/scott.jpg" alt="Scott Bateman" class="author-image"
+                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                        <div class="author-image-placeholder" style="display:none;">SB</div>
+                    </div>
+                    <div class="author-text-cell">
+                        <h3>Scott Bateman</h3>
+                        <div class="bio-title">Principal Solutions Architect, AWS &mdash; Energy</div>
+                        <p>Scott is a Principal Solutions Architect at AWS focused on customers in the energy industry. As part of the Geospatial Technical Field Community (TFC) group within AWS, he regularly works with customers on challenges in storing data, creating maps, tracking assets, optimizing driving routes, and understanding facilities through remote sensing. Prior to joining AWS in 2019, he was Director of Business Applications at bpx energy and has spent over 25 years innovating with technology to solve the toughest energy business problems. He holds a BS in Computer Science from Trinity University and an Executive MBA from Quantic.</p>
+                        <div class="social-links">
+                            <a href="https://github.com/yewtaah" target="_blank">GitHub</a>
+                            <a href="https://twitter.com/yewtaah" target="_blank">Twitter</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="author-row">
+                    <div class="author-photo-cell">
+                        <img src="assets/janahan.jpg" alt="Janahan Gnanachandran" class="author-image"
+                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                        <div class="author-image-placeholder" style="display:none;">JG</div>
+                    </div>
+                    <div class="author-text-cell">
+                        <h3>Janahan Gnanachandran</h3>
+                        <div class="bio-title">Principal Solutions Architect, AWS &mdash; Analytics, AI/ML &amp; Sustainability</div>
+                        <p>Jana is a Principal Solutions Architect at AWS with over 13 years of experience, collaborating with clients across energy, industrial, environmental, manufacturing, and finance to accelerate their cloud innovation journey. He is a member of the Analytics, AI/ML, and Environmental Sustainability Technical Field Communities at AWS, and conducts workshops, training sessions, and public speaking engagements on cloud architecture and data &amp; AI/ML strategy. He holds a BE in Electronics and Communication Engineering from Anna University and an MS in Computer Engineering from the University of Louisiana at Lafayette.</p>
+                        <div class="social-links">
+                            <a href="https://www.linkedin.com/in/janahan-gnanachandran/" target="_blank">LinkedIn</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="author-row">
+                    <div class="author-photo-cell">
+                        <img src="assets/jeff.jpg" alt="Jeff DeMuth" class="author-image"
+                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                        <div class="author-image-placeholder" style="display:none;">JD</div>
+                    </div>
+                    <div class="author-text-cell">
+                        <h3>Jeff DeMuth</h3>
+                        <div class="bio-title">Solutions Architect, AWS &mdash; Geospatial Community</div>
+                        <p>Jeff joined AWS in 2016 with a focus on the geospatial community and a passion for GIS and technology. He has spoken at over a dozen geospatial conferences across energy, mining, state and local government, telecom, and more. Outside of work, Jeff enjoys traveling, building IoT applications, and tinkering with the latest gadgets.</p>
+                        <div class="social-links">
+                            <a href="https://www.linkedin.com/posts/jeffdemuth_geospatial-data-analytics-on-aws-discover-activity-7083219879591374848-cA8n" target="_blank">LinkedIn</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">Geospatial<span>AWS</span></div>
+                <p>&copy; 2026 Scott Bateman, Janahan Gnanachandran &amp; Jeff DeMuth &mdash; Published by Packt</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
