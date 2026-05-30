@@ -11,7 +11,7 @@
       "features": 3233,
       "source": "US Census TIGER/Line",
       "chapter": "Chapter 4",
-      "url": "https://YOUR-BUCKET.s3.amazonaws.com/samples/us-counties.geojson",
+      "url": "https://geospatial-on-aws.s3.amazonaws.com/data/Municipal%20Boundaries/US_Counties.geojson",
       "bbox": [-125, 24, -66, 50]
     },
     {

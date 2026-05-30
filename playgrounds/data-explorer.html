@@ -377,7 +377,7 @@
 
         <div class="ctrl-section">
             <div class="ctrl-label">Download</div>
-            <a id="dl-link" href="../data/US_Counties.geojson" download="US_Counties.geojson" class="download-btn">
+            <a id="dl-link" href="https://geospatial-on-aws.s3.amazonaws.com/data/Municipal%20Boundaries/US_Counties.geojson" download="US_Counties.geojson" class="download-btn">
                 ⬇ &nbsp;US_Counties.geojson
             </a>
             <div id="dl-meta" style="font-size:0.7rem;color:var(--text-muted);margin-top:0.45rem;text-align:center;">
@@ -473,8 +473,8 @@
 // ── Dataset config ────────────────────────────────────────────────────────────
 const DATASETS = {
     counties: {
-        url: '../data/US_Counties.geojson',
-        dlHref: '../data/US_Counties.geojson',
+        url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Municipal%20Boundaries/US_Counties.geojson',
+        dlHref: 'https://geospatial-on-aws.s3.amazonaws.com/data/Municipal%20Boundaries/US_Counties.geojson',
         dlName: 'US_Counties.geojson',
         dlMeta: 'GeoJSON · EPSG:4326 · 7.8 MB',
         features: '3,233', format: 'GeoJSON', crs: '4326', size: '7.8 MB',

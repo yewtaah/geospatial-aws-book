@@ -197,8 +197,9 @@
             text-transform: uppercase;
         }
         /* ── Attribute table ──────────────────────────────────────────────── */
-        .map-right-wrap { display: flex; flex-direction: column; overflow: hidden; }
-        .map-wrap { position: relative; flex: 1; min-height: 0; }
+        .map-right-wrap { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+        .map-wrap { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        #map { flex: 1; min-height: 0; height: auto; width: 100%; }
         .attr-panel {
             height: 195px;
             flex-shrink: 0;
@@ -394,7 +395,7 @@
         },
         counties: {
             label: 'US Counties',
-            url: '../data/US_Counties.geojson',
+            url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Municipal%20Boundaries/US_Counties.geojson',
             geojson: { type:'FeatureCollection', features:[
                 {type:'Feature',properties:{name:'Los Angeles',state:'CA',region:'West',pop:10014009},geometry:{type:'Polygon',coordinates:[[[-118.95,33.70],[-117.60,33.70],[-117.60,34.82],[-118.95,34.82],[-118.95,33.70]]]}},
                 {type:'Feature',properties:{name:'Cook',state:'IL',region:'Midwest',pop:5275541},geometry:{type:'Polygon',coordinates:[[[-88.27,41.47],[-87.52,41.47],[-87.52,42.15],[-88.27,42.15],[-88.27,41.47]]]}},

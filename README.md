@@ -4,7 +4,7 @@ A website promoting the book "Geospatial Data Analytics on AWS" with interactive
 
 ## About
 
-This is the official companion website for the O'Reilly book on geospatial data analytics using Amazon Web Services. The site includes:
+This is the official companion website for the Packt book on geospatial data analytics using Amazon Web Services. The site includes:
 
 - Book information and purchase links
 - Interactive playgrounds and prototypes
@@ -77,7 +77,9 @@ Found a bug or have a suggestion? Open an issue or submit a pull request.
 
 - [Code Examples Repository](https://github.com/yewtaah/geospatial-aws-book-code)
 - [AWS Geospatial Services](https://aws.amazon.com/geospatial/)
-- [Book on O'Reilly](https://www.oreilly.com/)
+- [Book on Packt](https://www.packtpub.com/)
+- [Also available on O'Reilly](https://www.oreilly.com/)
+- [Available on Amazon](https://www.amazon.com/)
 
 ## License
 
