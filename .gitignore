@@ -21,3 +21,12 @@ build/
 # Environment
 .env
 .env.local
+
+# Large data files — hosted on S3 instead
+data/*.geojson
+data/*.shp
+data/*.dbf
+
+# Dev server
+serve.ps1
+screenshots/
