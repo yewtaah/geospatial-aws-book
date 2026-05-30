@@ -10,11 +10,15 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 });
 
 // Author photo lightbox
+const lightboxCaptions = {
+    ScottBateman: `Before there were smart screens, “blue dots,” or ChatGPT, I was a curious kid in Salt Lake City deconstructing the geography of Utah to prove a point. In the ‘90s, I spent my lunch breaks manually digitizing temperature data from the Salt Lake Tribune and plugging it into Microsoft Access to build a scrolling digital map. It was probably the most inefficient “GIS” ever created—and I’ve been obsessed with optimizing how we visualize the world ever since.`
+};
+
 function openLightbox(src, name) {
     const lb = document.getElementById('lightbox');
     document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox-img').alt = name;
-    document.getElementById('lightbox-caption').textContent = name;
+    document.getElementById('lightbox-caption').textContent = lightboxCaptions[name] || name;
     lb.classList.add('open');
     document.body.style.overflow = 'hidden';
 }

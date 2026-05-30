@@ -82,7 +82,7 @@
         .run-btn {
             width: 100%;
             padding: 0.65rem;
-            background: var(--sky);
+            background: #f97316; /* orange */
             border: none;
             border-radius: 3px;
             color: #05080f;
@@ -92,7 +92,7 @@
             letter-spacing: 0.04em;
             transition: all 0.15s;
         }
-        .run-btn:hover { background: var(--cyan); }
+        .run-btn:hover { background: #fb923c; }
         .run-btn:active { transform: scale(0.98); }
         .run-btn.running { background: var(--bg-elevated); color: var(--sky); border: 1px solid var(--border-mid); cursor: default; }
         .status-msg {
@@ -123,7 +123,7 @@
             line-height: 1;
             transition: color 0.2s;
         }
-        .stat-card.lit .stat-val { color: var(--sky); }
+        .stat-card.lit .stat-val { color: #f97316; }
         .stat-lbl {
             font-size: 0.67rem;
             color: var(--text-muted);
@@ -196,8 +196,45 @@
             letter-spacing: 0.07em;
             text-transform: uppercase;
         }
+        /* ── Attribute table ──────────────────────────────────────────────── */
+        .map-right-wrap { display: flex; flex-direction: column; overflow: hidden; }
+        .map-wrap { position: relative; flex: 1; min-height: 0; }
+        .attr-panel {
+            height: 195px;
+            flex-shrink: 0;
+            border-top: 1px solid var(--border-mid);
+            background: var(--bg-surface);
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+        .attr-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+        .attr-table thead th {
+            position: sticky; top: 0;
+            background: var(--bg-elevated);
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.65rem;
+            padding: 0.4rem 0.85rem;
+            border-bottom: 1px solid var(--border-mid);
+            white-space: nowrap;
+            text-align: left;
+        }
+        .attr-row { cursor: pointer; transition: background 0.1s; }
+        .attr-row:hover { background: var(--bg-elevated); }
+        .attr-row.selected { background: rgba(250,204,21,0.12); }
+        .attr-row.selected td { color: #facc15; }
+        .attr-row td {
+            padding: 0.32rem 0.85rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .attr-empty { padding: 1rem; font-size: 0.76rem; color: var(--text-muted); font-style: italic; text-align: center; }
         @media (max-width: 768px) {
             .pg-layout { grid-template-columns: 1fr; grid-template-rows: auto 380px; height: auto; }
+            .attr-panel { height: 150px; }
         }
     </style>
 </head>
@@ -219,13 +256,17 @@
 
             <div class="ctrl-section">
                 <div class="ctrl-label">Input Dataset</div>
-                <button class="opt-btn active" onclick="selectDataset('cities', this)">
+                <button id="btn-cities" class="opt-btn active" onclick="selectDataset('cities', this)">
                     <span class="op-icon">📍</span>
                     <span class="op-info"><span class="op-name">US Major Cities</span><span class="op-desc">30 point features</span></span>
                 </button>
-                <button class="opt-btn" onclick="selectDataset('regions', this)">
+                <button id="btn-regions" class="opt-btn" onclick="selectDataset('regions', this)">
                     <span class="op-icon">🗺</span>
                     <span class="op-info"><span class="op-name">US Regions</span><span class="op-desc">10 polygon features</span></span>
+                </button>
+                <button id="btn-counties" class="opt-btn" onclick="selectDataset('counties', this)">
+                    <span class="op-icon">🏛</span>
+                    <span class="op-info"><span class="op-name">US Counties</span><span class="op-desc">25 polygon features</span></span>
                 </button>
             </div>
 
@@ -276,7 +317,7 @@
                     </div>
                     <div class="stat-card" id="sc-area">
                         <div class="stat-val" id="stat-area">—</div>
-                        <div class="stat-lbl">Area km²</div>
+                        <div class="stat-lbl">Area mi²</div>
                     </div>
                     <div class="stat-card" id="sc-time">
                         <div class="stat-val" id="stat-time">—</div>
@@ -291,17 +332,22 @@
             </div>
         </aside>
 
-        <div class="map-wrap">
-            <div id="map"></div>
-            <div class="map-legend">
-                <div class="legend-item" id="leg-input" onclick="toggleLayer('input')">
-                    <div class="legend-dot" style="background:#2f7fc1;"></div>
-                    <span>Input layer</span>
+        <div class="map-right-wrap">
+            <div class="map-wrap">
+                <div id="map"></div>
+                <div class="map-legend">
+                    <div class="legend-item" id="leg-input" onclick="toggleLayer('input')">
+                        <div class="legend-dot" style="background:#2f7fc1;"></div>
+                        <span>Input layer</span>
+                    </div>
+                    <div class="legend-item" id="leg-output" onclick="toggleLayer('output')">
+                        <div class="legend-dot" style="background:#f97316;"></div>
+                        <span>Output layer</span>
+                    </div>
                 </div>
-                <div class="legend-item" id="leg-output" onclick="toggleLayer('output')">
-                    <div class="legend-dot" style="background:#0ea5e9;"></div>
-                    <span>Output layer</span>
-                </div>
+            </div>
+            <div class="attr-panel" id="attr-panel">
+                <p class="attr-empty">Select a dataset to browse its attributes.</p>
             </div>
         </div>
     </div>
@@ -346,6 +392,37 @@
                 {type:'Feature',properties:{name:'Kansas City',pop:495327,region:'Midwest'},geometry:{type:'Point',coordinates:[-94.5786,39.0997]}}
             ]}
         },
+        counties: {
+            label: 'US Counties',
+            url: '../data/US_Counties.geojson',
+            geojson: { type:'FeatureCollection', features:[
+                {type:'Feature',properties:{name:'Los Angeles',state:'CA',region:'West',pop:10014009},geometry:{type:'Polygon',coordinates:[[[-118.95,33.70],[-117.60,33.70],[-117.60,34.82],[-118.95,34.82],[-118.95,33.70]]]}},
+                {type:'Feature',properties:{name:'Cook',state:'IL',region:'Midwest',pop:5275541},geometry:{type:'Polygon',coordinates:[[[-88.27,41.47],[-87.52,41.47],[-87.52,42.15],[-88.27,42.15],[-88.27,41.47]]]}},
+                {type:'Feature',properties:{name:'Harris',state:'TX',region:'South',pop:4713325},geometry:{type:'Polygon',coordinates:[[[-95.91,29.49],[-94.91,29.49],[-94.91,30.17],[-95.91,30.17],[-95.91,29.49]]]}},
+                {type:'Feature',properties:{name:'Maricopa',state:'AZ',region:'West',pop:4420568},geometry:{type:'Polygon',coordinates:[[[-113.33,33.19],[-111.04,33.19],[-111.04,34.16],[-113.33,34.16],[-113.33,33.19]]]}},
+                {type:'Feature',properties:{name:'San Diego',state:'CA',region:'West',pop:3298634},geometry:{type:'Polygon',coordinates:[[[-117.60,32.53],[-116.08,32.53],[-116.08,33.50],[-117.60,33.50],[-117.60,32.53]]]}},
+                {type:'Feature',properties:{name:'Orange',state:'CA',region:'West',pop:3186989},geometry:{type:'Polygon',coordinates:[[[-118.12,33.38],[-117.41,33.38],[-117.41,33.95],[-118.12,33.95],[-118.12,33.38]]]}},
+                {type:'Feature',properties:{name:'Miami-Dade',state:'FL',region:'Southeast',pop:2716940},geometry:{type:'Polygon',coordinates:[[[-80.88,25.13],[-80.10,25.13],[-80.10,25.98],[-80.88,25.98],[-80.88,25.13]]]}},
+                {type:'Feature',properties:{name:'King',state:'WA',region:'West',pop:2269675},geometry:{type:'Polygon',coordinates:[[[-122.54,47.08],[-121.34,47.08],[-121.34,47.78],[-122.54,47.78],[-122.54,47.08]]]}},
+                {type:'Feature',properties:{name:'Clark',state:'NV',region:'West',pop:2266715},geometry:{type:'Polygon',coordinates:[[[-115.89,35.00],[-114.04,35.00],[-114.04,36.81],[-115.89,36.81],[-115.89,35.00]]]}},
+                {type:'Feature',properties:{name:'Tarrant',state:'TX',region:'South',pop:2110640},geometry:{type:'Polygon',coordinates:[[[-97.54,32.52],[-96.92,32.52],[-96.92,33.03],[-97.54,33.03],[-97.54,32.52]]]}},
+                {type:'Feature',properties:{name:'Bexar',state:'TX',region:'South',pop:2009324},geometry:{type:'Polygon',coordinates:[[[-99.00,29.18],[-98.10,29.18],[-98.10,29.77],[-99.00,29.77],[-99.00,29.18]]]}},
+                {type:'Feature',properties:{name:'Riverside',state:'CA',region:'West',pop:2418185},geometry:{type:'Polygon',coordinates:[[[-117.67,33.43],[-114.43,33.43],[-114.43,34.08],[-117.67,34.08],[-117.67,33.43]]]}},
+                {type:'Feature',properties:{name:'Santa Clara',state:'CA',region:'West',pop:1936259},geometry:{type:'Polygon',coordinates:[[[-122.20,36.89],[-121.21,36.89],[-121.21,37.48],[-122.20,37.48],[-122.20,36.89]]]}},
+                {type:'Feature',properties:{name:'Broward',state:'FL',region:'Southeast',pop:1944375},geometry:{type:'Polygon',coordinates:[[[-80.53,25.96],[-80.10,25.96],[-80.10,26.34],[-80.53,26.34],[-80.53,25.96]]]}},
+                {type:'Feature',properties:{name:'Fulton',state:'GA',region:'Southeast',pop:1066710},geometry:{type:'Polygon',coordinates:[[[-84.72,33.51],[-84.26,33.51],[-84.26,34.12],[-84.72,34.12],[-84.72,33.51]]]}},
+                {type:'Feature',properties:{name:'Travis',state:'TX',region:'South',pop:1290188},geometry:{type:'Polygon',coordinates:[[[-98.09,30.08],[-97.37,30.08],[-97.37,30.63],[-98.09,30.63],[-98.09,30.08]]]}},
+                {type:'Feature',properties:{name:'Denver',state:'CO',region:'Mountain',pop:715522},geometry:{type:'Polygon',coordinates:[[[-105.10,39.61],[-104.60,39.61],[-104.60,39.91],[-105.10,39.91],[-105.10,39.61]]]}},
+                {type:'Feature',properties:{name:'Mecklenburg',state:'NC',region:'Southeast',pop:1110356},geometry:{type:'Polygon',coordinates:[[[-81.07,35.00],[-80.53,35.00],[-80.53,35.51],[-81.07,35.51],[-81.07,35.00]]]}},
+                {type:'Feature',properties:{name:'Wake',state:'NC',region:'Southeast',pop:1129410},geometry:{type:'Polygon',coordinates:[[[-79.00,35.50],[-78.25,35.50],[-78.25,36.07],[-79.00,36.07],[-79.00,35.50]]]}},
+                {type:'Feature',properties:{name:'Hennepin',state:'MN',region:'Midwest',pop:1281565},geometry:{type:'Polygon',coordinates:[[[-93.77,44.79],[-93.21,44.79],[-93.21,45.24],[-93.77,45.24],[-93.77,44.79]]]}},
+                {type:'Feature',properties:{name:'Multnomah',state:'OR',region:'West',pop:812855},geometry:{type:'Polygon',coordinates:[[[-122.93,45.43],[-122.43,45.43],[-122.43,45.65],[-122.93,45.65],[-122.93,45.43]]]}},
+                {type:'Feature',properties:{name:'Allegheny',state:'PA',region:'Northeast',pop:1218380},geometry:{type:'Polygon',coordinates:[[[-80.37,40.18],[-79.69,40.18],[-79.69,40.68],[-80.37,40.68],[-80.37,40.18]]]}},
+                {type:'Feature',properties:{name:'Franklin',state:'OH',region:'Midwest',pop:1323807},geometry:{type:'Polygon',coordinates:[[[-83.27,39.78],[-82.66,39.78],[-82.66,40.16],[-83.27,40.16],[-83.27,39.78]]]}},
+                {type:'Feature',properties:{name:'Salt Lake',state:'UT',region:'Mountain',pop:1185238},geometry:{type:'Polygon',coordinates:[[[-112.26,40.48],[-111.56,40.48],[-111.56,40.86],[-112.26,40.86],[-112.26,40.48]]]}},
+                {type:'Feature',properties:{name:'Jefferson',state:'CO',region:'Mountain',pop:582881},geometry:{type:'Polygon',coordinates:[[[-105.65,39.41],[-105.08,39.41],[-105.08,39.89],[-105.65,39.89],[-105.65,39.41]]]}}
+            ]}
+        },
         regions: {
             label: 'US Regions',
             geojson: { type:'FeatureCollection', features:[
@@ -363,15 +440,70 @@
         }
     };
 
+    // Helper: load external dataset (with localStorage caching)
+    async function loadExternalDataset(key) {
+        const ds = DATASETS[key];
+        if (!ds || !ds.url) return ds;
+        const cacheKey = 'dataset_' + key;
+        // return if already loaded in memory
+        if (ds._loaded) return ds;
+        // try localStorage
+        try {
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                ds.geojson = JSON.parse(cached);
+                ds._loaded = true;
+                updateDatasetButtonCount(key);
+                return ds;
+            }
+        } catch(e) {
+            console.warn('cache read failed', e);
+        }
+
+        setStatus('Loading full ' + ds.label + ' dataset…', false);
+        try {
+            const resp = await fetch(ds.url);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const text = await resp.text();
+            const parsed = JSON.parse(text);
+            ds.geojson = parsed;
+            ds._loaded = true;
+            // attempt to cache if reasonably sized (<4.5MB)
+            try {
+                if (text.length < 4.5 * 1024 * 1024) {
+                    localStorage.setItem(cacheKey, JSON.stringify(parsed));
+                }
+            } catch(e) { console.warn('cache write failed', e); }
+            updateDatasetButtonCount(key);
+            setStatus('', false);
+            return ds;
+        } catch(err) {
+            setStatus('Could not load dataset: ' + err.message, true);
+            console.error(err);
+            return ds;
+        }
+    }
+
+    function updateDatasetButtonCount(key) {
+        const ds = DATASETS[key];
+        if (!ds) return;
+        const count = ds.geojson && ds.geojson.features ? ds.geojson.features.length : 0;
+        const btn = document.getElementById('btn-' + key);
+        if (btn) {
+            const desc = btn.querySelector('.op-desc');
+            if (desc) desc.textContent = `${count} ${count === 1 ? 'feature' : 'features'}`;
+        }
+    }
+
     // ── Operations ────────────────────────────────────────────────────────────
     const OPERATIONS = {
         buffer: {
             params: [
-                {id:'distance', label:'Distance', unit:'km', type:'range', min:20, max:500, step:10, default:150},
+                {id:'distance', label:'Distance', unit:'mi', type:'range', min:10, max:300, step:10, default:100},
                 {id:'steps',    label:'Segments', unit:'',   type:'range', min:4,  max:32,  step:4,  default:16}
             ],
             run(geojson, p) {
-                return turf.buffer(geojson, p.distance, {units:'kilometers', steps:p.steps});
+                return turf.buffer(geojson, p.distance, {units:'miles', steps:p.steps});
             },
             code(p) {
                 return `<span class="cm"># AWS Lambda / Glue – GeoPandas buffer</span>
@@ -382,9 +514,9 @@ gdf = gpd.read_file(<span class="str">"s3://my-bucket/cities.geojson"</span>)
 <span class="cm"># Project to equal-area CRS for accurate distances</span>
 gdf_proj = gdf.to_crs(<span class="str">"EPSG:5070"</span>)  <span class="cm"># Albers Equal Area</span>
 
-<span class="cm"># Buffer by ${p.distance} km</span>
+<span class="cm"># Buffer by ${p.distance} mi</span>
 gdf_buf = gdf_proj.copy()
-gdf_buf.geometry = gdf_proj.buffer(<span class="num">${p.distance * 1000}</span>)
+gdf_buf.geometry = gdf_proj.buffer(<span class="num">${Math.round(p.distance * 1609.34)}</span>)
 
 <span class="cm"># Reproject back to WGS-84 and write</span>
 result = gdf_buf.to_crs(<span class="str">"EPSG:4326"</span>)
@@ -517,6 +649,8 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
     let outputVisible = true;
     let inputLayer = null;
     let outputLayer = null;
+    let inputFeatureLayers = [];
+    let selectedInputIdx = -1;
 
     // ── Map ────────────────────────────────────────────────────────────────────
     const map = L.map('map').setView([39, -98], 4);
@@ -527,7 +661,7 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
     }).addTo(map);
 
     const IN_STYLE  = {color:'#2f7fc1', fillColor:'#2f7fc1', fillOpacity:0.12, weight:1.5};
-    const OUT_STYLE = {color:'#0ea5e9', fillColor:'0ea5e9',  fillOpacity:0.35, weight:2};
+    const OUT_STYLE = {color:'#f97316', fillColor:'#f97316', fillOpacity:0.35, weight:2};
 
     function makeLayer(geojson, style, isPoint) {
         return L.geoJSON(geojson, {
@@ -548,11 +682,81 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
         if (outputLayer) { map.removeLayer(outputLayer); outputLayer = null; }
     }
 
+    const HIGHLIGHT_STYLE = {color:'#facc15', fillColor:'#facc15', fillOpacity:0.65, weight:2.5};
+
+    function selectInputFeature(idx) {
+        if (selectedInputIdx === idx) {
+            // deselect
+            if (inputFeatureLayers[idx]) inputFeatureLayers[idx].setStyle(IN_STYLE);
+            selectedInputIdx = -1;
+            document.querySelectorAll('.attr-row').forEach(r => r.classList.remove('selected'));
+            return;
+        }
+        if (selectedInputIdx >= 0 && inputFeatureLayers[selectedInputIdx]) {
+            inputFeatureLayers[selectedInputIdx].setStyle(IN_STYLE);
+        }
+        selectedInputIdx = idx;
+        if (inputFeatureLayers[idx]) {
+            inputFeatureLayers[idx].setStyle(HIGHLIGHT_STYLE);
+            inputFeatureLayers[idx].bringToFront();
+        }
+        document.querySelectorAll('.attr-row').forEach((r, i) => r.classList.toggle('selected', i === idx));
+        const row = document.querySelector('.attr-row.selected');
+        if (row) row.scrollIntoView({block: 'nearest'});
+    }
+
+    function renderAttributeTable(geojson) {
+        const panel = document.getElementById('attr-panel');
+        if (!geojson || !geojson.features.length) {
+            panel.innerHTML = '<p class="attr-empty">No features to display.</p>';
+            return;
+        }
+        const keys = Object.keys(geojson.features[0].properties || {});
+        if (!keys.length) {
+            panel.innerHTML = '<p class="attr-empty">No attributes available.</p>';
+            return;
+        }
+        const ths = keys.map(k => `<th>${k}</th>`).join('');
+        const trs = geojson.features.map((f, i) => {
+            const tds = keys.map(k => {
+                const raw = f.properties[k];
+                if (raw === null || raw === undefined) return '<td></td>';
+                // Format population-like numeric fields with commas
+                if (k === 'pop' || k.toLowerCase().includes('pop')) {
+                    const n = Number(raw);
+                    if (!isNaN(n)) return `<td>${n.toLocaleString()}</td>`;
+                }
+                // Preserve existing values for everything else
+                return `<td>${raw}</td>`;
+            }).join('');
+            return `<tr class="attr-row" onclick="selectInputFeature(${i})">${tds}</tr>`;
+        }).join('');
+        panel.innerHTML = `<table class="attr-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+    }
+
     function showInput(geojson) {
         if (inputLayer) { map.removeLayer(inputLayer); inputLayer = null; }
+        inputFeatureLayers = [];
+        selectedInputIdx = -1;
         const isPoint = geojson.features[0] && geojson.features[0].geometry.type === 'Point';
-        inputLayer = makeLayer(geojson, IN_STYLE, isPoint).addTo(map);
+        let idx = 0;
+        inputLayer = L.geoJSON(geojson, {
+            style: () => IN_STYLE,
+            pointToLayer: (f, ll) => L.circleMarker(ll, {radius: 6, ...IN_STYLE}),
+            onEachFeature: (f, layer) => {
+                const i = idx++;
+                inputFeatureLayers.push(layer);
+                layer.on('click', () => selectInputFeature(i));
+                if (f.properties && Object.keys(f.properties).length) {
+                    const rows = Object.entries(f.properties)
+                        .map(([k,v]) => `<span style="color:var(--text-muted)">${k}:</span> ${v}`)
+                        .join('<br>');
+                    layer.bindPopup(`<div style="font-size:0.78rem;line-height:1.6">${rows}</div>`);
+                }
+            }
+        }).addTo(map);
         if (!inputVisible) applyVisibility(inputLayer, false, IN_STYLE);
+        renderAttributeTable(geojson);
     }
 
     function showOutput(geojson) {
@@ -561,6 +765,7 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
         const isPoint = geojson.features[0] && geojson.features[0].geometry.type === 'Point';
         outputLayer = makeLayer(geojson, OUT_STYLE, isPoint).addTo(map);
         if (!outputVisible) applyVisibility(outputLayer, false, OUT_STYLE);
+        if (inputLayer) inputLayer.bringToFront();
     }
 
     function applyVisibility(layer, visible, style) {
@@ -627,11 +832,18 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
     }
 
     // ── Selection handlers ─────────────────────────────────────────────────────
-    function selectDataset(key, btn) {
+    async function selectDataset(key, btn) {
         document.querySelectorAll('[onclick^="selectDataset"]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentDataset = key;
+        selectedInputIdx = -1;
         clearOutput();
+
+        // load external dataset if configured
+        if (DATASETS[key] && DATASETS[key].url) {
+            await loadExternalDataset(key);
+        }
+
         showInput(DATASETS[key].geojson);
         renderParams();
         updateCode();
@@ -681,7 +893,7 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
                     });
                 }
 
-                updateStats(inCount, outCount, Math.round(totalArea / 1e6), elapsed);
+                updateStats(inCount, outCount, Math.round(totalArea / 2589988), elapsed);
                 setStatus(`✓ ${outCount} output feature${outCount !== 1 ? 's' : ''} — click map features to inspect`, false);
             } catch(err) {
                 setStatus(err.message, true);
@@ -693,10 +905,10 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
     }
 
     // ── Stats ──────────────────────────────────────────────────────────────────
-    function updateStats(inN, outN, areaSqKm, ms) {
+    function updateStats(inN, outN, areaSqMi, ms) {
         document.getElementById('stat-in').textContent   = inN;
         document.getElementById('stat-out').textContent  = outN;
-        document.getElementById('stat-area').textContent = areaSqKm > 0 ? areaSqKm.toLocaleString() : '—';
+        document.getElementById('stat-area').textContent = areaSqMi > 0 ? areaSqMi.toLocaleString() : '—';
         document.getElementById('stat-time').textContent = ms;
         ['sc-in','sc-out','sc-area','sc-time'].forEach(id =>
             document.getElementById(id).classList.add('lit'));
@@ -730,6 +942,10 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
 
     // ── Init ───────────────────────────────────────────────────────────────────
     showInput(DATASETS.cities.geojson);
+    // update button labels with counts
+    updateDatasetButtonCount('cities');
+    updateDatasetButtonCount('regions');
+    updateDatasetButtonCount('counties');
     renderParams();
     updateCode();
     </script>
