@@ -110,27 +110,27 @@ body {
     background: var(--bg);
 }
 
-/* Radial glow in the image's teal-blue color palette */
+/* Map background — 4-panel satellite/light/dark/topo composition */
 .hero::before {
     content: '';
     position: absolute;
     inset: 0;
-    background:
-        radial-gradient(ellipse 80% 55% at 50% -5%, rgba(6, 182, 212, 0.09) 0%, transparent 65%),
-        radial-gradient(ellipse 50% 40% at 20% 100%, rgba(14, 165, 233, 0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 40% 30% at 80% 100%, rgba(47, 127, 193, 0.05) 0%, transparent 50%);
+    background: url('../assets/map-bg.svg') center/cover no-repeat;
+    opacity: 0.09;
     pointer-events: none;
 }
 
-/* Engineering grid overlay on hero */
+/* Radial glow + engineering grid overlay */
 .hero::after {
     content: '';
     position: absolute;
     inset: 0;
-    background-image:
-        linear-gradient(rgba(30, 58, 95, 0.18) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(30, 58, 95, 0.18) 1px, transparent 1px);
-    background-size: 48px 48px;
+    background:
+        radial-gradient(ellipse 80% 55% at 50% -5%, rgba(6, 182, 212, 0.1) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 20% 100%, rgba(14, 165, 233, 0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 100%, rgba(47, 127, 193, 0.06) 0%, transparent 50%),
+        linear-gradient(rgba(30, 58, 95, 0.14) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(30, 58, 95, 0.14) 1px, transparent 1px) 0 0 / 48px 48px;
     pointer-events: none;
     mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 20%, transparent 80%);
     -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 20%, transparent 80%);
@@ -271,6 +271,30 @@ body {
 }
 
 .bg-surface { background: var(--bg-surface); }
+
+/* Subtle map echo on surface sections */
+#data.bg-surface {
+    background-image: url('../assets/map-bg.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+}
+
+#data.bg-surface::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--bg-surface);
+    opacity: 0.92;
+    pointer-events: none;
+    z-index: 0;
+}
+
+#data.bg-surface > .container {
+    position: relative;
+    z-index: 1;
+}
 
 /* ── Section divider ───────────────────────────────────────────────────────── */
 .section-divider { height: 1px; background: var(--border); }
