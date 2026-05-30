@@ -1,323 +1,191 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 560" preserveAspectRatio="xMidYMid slice">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMid slice">
   <defs>
-    <!-- Clip paths for 4 panels -->
-    <clipPath id="cp1"><rect x="0"    y="0" width="360" height="560"/></clipPath>
-    <clipPath id="cp2"><rect x="360"  y="0" width="360" height="560"/></clipPath>
-    <clipPath id="cp3"><rect x="720"  y="0" width="360" height="560"/></clipPath>
-    <clipPath id="cp4"><rect x="1080" y="0" width="360" height="560"/></clipPath>
+    <!-- Minor street grid, slightly rotated like a real city block layout -->
+    <pattern id="minorStreets" x="0" y="0" width="48" height="48"
+             patternTransform="rotate(7 720 300)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0"  y2="48" stroke="#0a2030" stroke-width="0.6"/>
+      <line x1="0" y1="0" x2="48" y2="0"  stroke="#0a2030" stroke-width="0.6"/>
+    </pattern>
 
-    <!-- Fade-to-transparent masks on left and right edges -->
-    <linearGradient id="fadeX" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%"   stop-color="black" stop-opacity="0"/>
-      <stop offset="8%"   stop-color="black" stop-opacity="1"/>
-      <stop offset="92%"  stop-color="black" stop-opacity="1"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="fadeY" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%"   stop-color="black" stop-opacity="0.4"/>
-      <stop offset="15%"  stop-color="black" stop-opacity="1"/>
-      <stop offset="85%"  stop-color="black" stop-opacity="1"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.3"/>
-    </linearGradient>
-    <mask id="edgeFade">
-      <rect width="1440" height="560" fill="url(#fadeX)"/>
-    </mask>
+    <!-- Secondary street grid, same rotation -->
+    <pattern id="secStreets" x="0" y="0" width="192" height="192"
+             patternTransform="rotate(7 720 300)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0"   y2="192" stroke="#143558" stroke-width="1.2"/>
+      <line x1="0" y1="0" x2="192" y2="0"   stroke="#143558" stroke-width="1.2"/>
+    </pattern>
 
-    <!-- Satellite terrain gradient (panel 4) -->
-    <radialGradient id="terrainGrad" cx="55%" cy="45%" r="55%">
-      <stop offset="0%"   stop-color="#3a6b3a"/>
-      <stop offset="30%"  stop-color="#8b7355"/>
-      <stop offset="60%"  stop-color="#6b5a40"/>
-      <stop offset="100%" stop-color="#4a3d2a"/>
-    </radialGradient>
-    <linearGradient id="waterGradSat" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%"   stop-color="#1a9a7a"/>
-      <stop offset="100%" stop-color="#0d6b55"/>
+    <!-- Neon blue glow filter for arterials -->
+    <filter id="blueGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Orange glow filter for highways -->
+    <filter id="orangeGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Node glow filter -->
+    <filter id="nodeGlow" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Radial fade masks for edges -->
+    <linearGradient id="fadeLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"  stop-color="black" stop-opacity="1"/>
+      <stop offset="12%" stop-color="black" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="fadeRight" x1="100%" y1="0%" x2="0%" y2="0%">
+      <stop offset="0%"  stop-color="black" stop-opacity="1"/>
+      <stop offset="12%" stop-color="black" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="fadeTop" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="black" stop-opacity="0.7"/>
+      <stop offset="18%" stop-color="black" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="fadeBottom" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%"  stop-color="black" stop-opacity="0.6"/>
+      <stop offset="18%" stop-color="black" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PANEL 1 — Light / Minimal (grey palette)               -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <g clip-path="url(#cp1)">
-    <!-- Background tint -->
-    <rect x="0" y="0" width="360" height="560" fill="#d0dce8" opacity="0.25"/>
+  <!-- ── Base grid layers ───────────────────────────────────────────────────── -->
+  <rect width="1440" height="600" fill="url(#minorStreets)"  opacity="0.9"/>
+  <rect width="1440" height="600" fill="url(#secStreets)"    opacity="0.75"/>
 
-    <!-- Grid lines – city blocks -->
-    <g stroke="#8099b0" stroke-width="0.5" opacity="0.5">
-      <line x1="0"   y1="80"  x2="360" y2="80"/>
-      <line x1="0"   y1="160" x2="360" y2="160"/>
-      <line x1="0"   y1="240" x2="360" y2="240"/>
-      <line x1="0"   y1="320" x2="360" y2="320"/>
-      <line x1="0"   y1="400" x2="360" y2="400"/>
-      <line x1="0"   y1="480" x2="360" y2="480"/>
-      <line x1="72"  y1="0"   x2="72"  y2="560"/>
-      <line x1="144" y1="0"   x2="144" y2="560"/>
-      <line x1="216" y1="0"   x2="216" y2="560"/>
-      <line x1="288" y1="0"   x2="288" y2="560"/>
-    </g>
+  <!-- ── Water features ────────────────────────────────────────────────────── -->
+  <!-- River / waterway snaking across lower portion -->
+  <path d="M -20,480 C 80,460 160,495 260,472 C 360,449 420,480 520,465
+           C 620,450 680,478 780,462 C 880,446 940,470 1060,455
+           C 1160,442 1240,465 1380,448 L 1460,448 L 1460,600 L -20,600 Z"
+        fill="#051520" opacity="0.9"/>
+  <path d="M -20,480 C 80,460 160,495 260,472 C 360,449 420,480 520,465
+           C 620,450 680,478 780,462 C 880,446 940,470 1060,455
+           C 1160,442 1240,465 1380,448"
+        stroke="#0a4060" stroke-width="1.5" fill="none" opacity="0.8"/>
+  <!-- River highlight (neon edge) -->
+  <path d="M -20,480 C 80,460 160,495 260,472 C 360,449 420,480 520,465
+           C 620,450 680,478 780,462 C 880,446 940,470 1060,455
+           C 1160,442 1240,465 1380,448"
+        stroke="#06b6d4" stroke-width="0.8" fill="none" opacity="0.5"/>
 
-    <!-- Subdivision roads (finer grid) -->
-    <g stroke="#a0b4c4" stroke-width="0.3" opacity="0.35">
-      <line x1="0"   y1="40"  x2="360" y2="40"/>
-      <line x1="0"   y1="120" x2="360" y2="120"/>
-      <line x1="0"   y1="200" x2="360" y2="200"/>
-      <line x1="0"   y1="280" x2="360" y2="280"/>
-      <line x1="0"   y1="360" x2="360" y2="360"/>
-      <line x1="0"   y1="440" x2="360" y2="440"/>
-      <line x1="36"  y1="0"   x2="36"  y2="560"/>
-      <line x1="108" y1="0"   x2="108" y2="560"/>
-      <line x1="180" y1="0"   x2="180" y2="560"/>
-      <line x1="252" y1="0"   x2="252" y2="560"/>
-      <line x1="324" y1="0"   x2="324" y2="560"/>
-    </g>
+  <!-- Lake / reservoir (upper left) -->
+  <path d="M 60,40 C 90,28 125,32 145,48 C 165,64 168,88 158,108
+           C 148,128 125,138 100,132 C 75,126 52,108 48,85
+           C 44,62 48,48 60,40 Z"
+        fill="#04121e" opacity="0.9"/>
+  <path d="M 60,40 C 90,28 125,32 145,48 C 165,64 168,88 158,108
+           C 148,128 125,138 100,132 C 75,126 52,108 48,85
+           C 44,62 48,48 60,40 Z"
+        stroke="#0ea5e9" stroke-width="1" fill="none" opacity="0.5"/>
 
-    <!-- Great Salt Lake – light style -->
-    <path d="M 118,22 L 158,22 L 163,28 L 163,128
-             L 260,128 C 292,130 305,155 295,192
-             C 285,229 252,258 200,264
-             C 148,270 100,252 72,220
-             C 44,188 42,155 58,130
-             L 113,128 L 113,28 Z"
-          fill="#5a9fd4" opacity="0.35"/>
+  <!-- Small inlet / creek -->
+  <path d="M 145,80 C 200,72 260,85 310,78" stroke="#0a3a50" stroke-width="2" fill="none" opacity="0.7"/>
+  <path d="M 145,80 C 200,72 260,85 310,78" stroke="#06b6d4" stroke-width="0.7" fill="none" opacity="0.4"/>
 
-    <!-- Causeway line -->
-    <line x1="113" y1="130" x2="163" y2="130" stroke="#a0b8c8" stroke-width="2" opacity="0.6"/>
-
-    <!-- I-15 highway -->
-    <path d="M 248,0 C 246,80 242,180 236,280 C 232,360 228,440 224,560"
-          stroke="#8899aa" stroke-width="2.5" fill="none" opacity="0.6"/>
-    <path d="M 248,0 C 246,80 242,180 236,280 C 232,360 228,440 224,560"
-          stroke="#ccdde8" stroke-width="1" fill="none" opacity="0.5"/>
-
-    <!-- US-89 secondary road -->
-    <path d="M 200,0 C 202,80 205,160 210,240 C 215,320 218,400 220,560"
-          stroke="#a0b4c4" stroke-width="1.5" fill="none" opacity="0.45"/>
-
-    <!-- SLC marker -->
-    <circle cx="234" cy="310" r="7" fill="#334455" opacity="0.55"/>
-    <circle cx="234" cy="310" r="3" fill="#ddeeff" opacity="0.85"/>
-
-    <!-- Small city dots -->
-    <circle cx="192" cy="160" r="3" fill="#4466aa" opacity="0.45"/>
-    <circle cx="260" cy="205" r="2.5" fill="#4466aa" opacity="0.4"/>
-    <circle cx="226" cy="85"  r="2" fill="#bb3366" opacity="0.6"/>
+  <!-- ── Minor local roads (dim, thin, many) ─────────────────────────────── -->
+  <g stroke="#0f2840" stroke-width="0.8" fill="none" opacity="0.7">
+    <!-- Diagonal streets cutting across grid -->
+    <path d="M 340,0   C 360,100 375,200 385,300 C 395,400 400,500 405,600"/>
+    <path d="M 720,0   C 718,100 715,200 712,300 C 709,400 706,500 703,600"/>
+    <path d="M 1080,0  C 1082,100 1085,200 1088,300 C 1091,400 1094,500 1097,600"/>
+    <path d="M 0,150   C 200,148 400,152 600,150 C 800,148 1000,152 1200,150 C 1300,149 1380,150 1440,150"/>
+    <path d="M 0,300   C 200,298 400,302 600,300 C 800,298 1000,302 1200,300 C 1300,299 1380,300 1440,300"/>
+    <path d="M 0,450   C 200,448 400,452 600,450 C 800,448 1000,452 1200,450 C 1300,449 1380,450 1440,450"/>
+    <!-- Diagonal cut-throughs -->
+    <path d="M 0,80  L 220,300"/>
+    <path d="M 0,250 L 180,480"/>
+    <path d="M 440,0 L 680,300 L 740,600"/>
+    <path d="M 900,0 L 1100,260 L 1200,600"/>
+    <path d="M 1200,0 L 1380,200"/>
+    <path d="M 1440,120 L 1260,300 L 1380,600"/>
   </g>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PANEL 2 — Dark / Night                                 -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <g clip-path="url(#cp2)" transform="translate(360,0)">
-    <!-- Background tint – darker -->
-    <rect x="0" y="0" width="360" height="560" fill="#0a1520" opacity="0.6"/>
-
-    <!-- Grid lines – pale on dark -->
-    <g stroke="#2a4060" stroke-width="0.5" opacity="0.7">
-      <line x1="0"   y1="80"  x2="360" y2="80"/>
-      <line x1="0"   y1="160" x2="360" y2="160"/>
-      <line x1="0"   y1="240" x2="360" y2="240"/>
-      <line x1="0"   y1="320" x2="360" y2="320"/>
-      <line x1="0"   y1="400" x2="360" y2="400"/>
-      <line x1="0"   y1="480" x2="360" y2="480"/>
-      <line x1="72"  y1="0"   x2="72"  y2="560"/>
-      <line x1="144" y1="0"   x2="144" y2="560"/>
-      <line x1="216" y1="0"   x2="216" y2="560"/>
-      <line x1="288" y1="0"   x2="288" y2="560"/>
-    </g>
-
-    <!-- Fine grid -->
-    <g stroke="#1a2f44" stroke-width="0.3" opacity="0.6">
-      <line x1="0"   y1="40"  x2="360" y2="40"/>
-      <line x1="0"   y1="120" x2="360" y2="120"/>
-      <line x1="0"   y1="200" x2="360" y2="200"/>
-      <line x1="0"   y1="280" x2="360" y2="280"/>
-      <line x1="0"   y1="360" x2="360" y2="360"/>
-      <line x1="0"   y1="440" x2="360" y2="440"/>
-      <line x1="36"  y1="0"   x2="36"  y2="560"/>
-      <line x1="108" y1="0"   x2="108" y2="560"/>
-      <line x1="180" y1="0"   x2="180" y2="560"/>
-      <line x1="252" y1="0"   x2="252" y2="560"/>
-      <line x1="324" y1="0"   x2="324" y2="560"/>
-    </g>
-
-    <!-- Great Salt Lake – dark style -->
-    <path d="M 118,22 L 158,22 L 163,28 L 163,128
-             L 260,128 C 292,130 305,155 295,192
-             C 285,229 252,258 200,264
-             C 148,270 100,252 72,220
-             C 44,188 42,155 58,130
-             L 113,128 L 113,28 Z"
-          fill="#0d2d4a" opacity="0.9"/>
-    <path d="M 118,22 L 158,22 L 163,28 L 163,128
-             L 260,128 C 292,130 305,155 295,192
-             C 285,229 252,258 200,264
-             C 148,270 100,252 72,220
-             C 44,188 42,155 58,130
-             L 113,128 L 113,28 Z"
-          fill="none" stroke="#1a5080" stroke-width="1" opacity="0.7"/>
-
-    <!-- Causeway -->
-    <line x1="113" y1="130" x2="163" y2="130" stroke="#2a6090" stroke-width="2" opacity="0.7"/>
-
-    <!-- I-15 – glowing white -->
-    <path d="M 248,0 C 246,80 242,180 236,280 C 232,360 228,440 224,560"
-          stroke="#ffffff" stroke-width="3.5" fill="none" opacity="0.18"/>
-    <path d="M 248,0 C 246,80 242,180 236,280 C 232,360 228,440 224,560"
-          stroke="#ccddff" stroke-width="1.5" fill="none" opacity="0.6"/>
-
-    <!-- Secondary road -->
-    <path d="M 200,0 C 202,80 205,160 210,240 C 215,320 218,400 220,560"
-          stroke="#445566" stroke-width="1.5" fill="none" opacity="0.7"/>
-
-    <!-- SLC marker – glowing -->
-    <circle cx="234" cy="310" r="10" fill="#0ea5e9" opacity="0.15"/>
-    <circle cx="234" cy="310" r="6"  fill="#1a3050" opacity="0.85"/>
-    <circle cx="234" cy="310" r="3"  fill="#e0f0ff" opacity="0.9"/>
-
-    <!-- City dots -->
-    <circle cx="192" cy="160" r="3" fill="#3366cc" opacity="0.6"/>
-    <circle cx="260" cy="205" r="2.5" fill="#3366cc" opacity="0.55"/>
-    <circle cx="226" cy="85"  r="3" fill="#ff5599" opacity="0.7"/>
-    <circle cx="226" cy="85"  r="6" fill="#ff5599" opacity="0.12"/>
+  <!-- ── Secondary arterials (medium blue, readable) ─────────────────────── -->
+  <g stroke="#1a5580" stroke-width="1.8" fill="none" opacity="0.75">
+    <path d="M 0,200    C 300,196 600,204 900,200 C 1100,197 1300,202 1440,200"/>
+    <path d="M 0,400    C 300,396 600,404 900,400 C 1100,397 1300,402 1440,400"/>
+    <path d="M 480,0    C 478,150 476,300 474,450 C 472,520 471,560 470,600"/>
+    <path d="M 960,0    C 962,150 964,300 966,450 C 968,520 969,560 970,600"/>
+    <!-- Grid diagonals -->
+    <path d="M 160,0   C 200,60 260,140 320,220 C 380,300 460,380 540,460 C 590,510 630,550 660,600"/>
+    <path d="M 820,0   C 860,80 910,170 950,260 C 990,350 1020,440 1050,530 C 1062,560 1070,580 1080,600"/>
+    <path d="M 0,30    C 100,60 200,110 310,180 C 420,250 500,300 560,360"/>
+    <path d="M 0,530   C 200,510 400,520 600,510 C 800,500 1000,515 1200,505 C 1300,500 1380,505 1440,505"/>
   </g>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PANEL 3 — Standard / Topo                              -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <g clip-path="url(#cp3)" transform="translate(720,0)">
-    <!-- Background – warm beige/tan -->
-    <rect x="0" y="0" width="360" height="560" fill="#e8e0cc" opacity="0.3"/>
-
-    <!-- Topo contour lines (organic curves) -->
-    <g stroke="#c8b888" stroke-width="0.5" fill="none" opacity="0.45">
-      <path d="M 0,180 C 60,170 120,185 180,175 C 240,165 300,180 360,170"/>
-      <path d="M 0,220 C 60,210 120,225 180,215 C 240,205 300,220 360,210"/>
-      <path d="M 0,260 C 60,252 120,265 180,255 C 240,245 300,258 360,250"/>
-      <path d="M 0,380 C 60,372 120,385 180,375 C 240,365 300,378 360,370"/>
-      <path d="M 0,420 C 60,412 120,425 180,415 C 240,405 300,418 360,410"/>
-      <path d="M 0,460 C 60,452 120,465 180,455 C 240,445 300,458 360,450"/>
-    </g>
-
-    <!-- Regular grid (lighter) -->
-    <g stroke="#b8a888" stroke-width="0.4" opacity="0.35">
-      <line x1="0"   y1="80"  x2="360" y2="80"/>
-      <line x1="0"   y1="160" x2="360" y2="160"/>
-      <line x1="0"   y1="240" x2="360" y2="240"/>
-      <line x1="0"   y1="320" x2="360" y2="320"/>
-      <line x1="0"   y1="400" x2="360" y2="400"/>
-      <line x1="0"   y1="480" x2="360" y2="480"/>
-      <line x1="72"  y1="0"   x2="72"  y2="560"/>
-      <line x1="144" y1="0"   x2="144" y2="560"/>
-      <line x1="216" y1="0"   x2="216" y2="560"/>
-      <line x1="288" y1="0"   x2="288" y2="560"/>
-    </g>
-
-    <!-- Great Salt Lake – bright blue water -->
-    <path d="M 118,22 L 158,22 L 163,28 L 163,128
-             L 260,128 C 292,130 305,155 295,192
-             C 285,229 252,258 200,264
-             C 148,270 100,252 72,220
-             C 44,188 42,155 58,130
-             L 113,128 L 113,28 Z"
-          fill="#4da8e8" opacity="0.65"/>
-    <path d="M 118,22 L 158,22 L 163,28 L 163,128
-             L 260,128 C 292,130 305,155 295,192
-             C 285,229 252,258 200,264
-             C 148,270 100,252 72,220
-             C 44,188 42,155 58,130
-             L 113,128 L 113,28 Z"
-          fill="none" stroke="#2288cc" stroke-width="1" opacity="0.6"/>
-
-    <!-- Causeway (raised road line) -->
-    <line x1="113" y1="130" x2="163" y2="130" stroke="#cc8833" stroke-width="2.5" opacity="0.7"/>
-
-    <!-- I-15 – standard highway orange -->
-    <path d="M 248,0 C 246,80 242,180 236,280 C 232,360 228,440 224,560"
-          stroke="#e8a030" stroke-width="3.5" fill="none" opacity="0.55"/>
-    <path d="M 248,0 C 246,80 242,180 236,280 C 232,360 228,440 224,560"
-          stroke="#ffffff" stroke-width="1" fill="none" opacity="0.5"/>
-
-    <!-- Secondary road -->
-    <path d="M 200,0 C 202,80 205,160 210,240 C 215,320 218,400 220,560"
-          stroke="#d0a050" stroke-width="2" fill="none" opacity="0.5"/>
-
-    <!-- SLC marker -->
-    <circle cx="234" cy="310" r="7" fill="#222233" opacity="0.65"/>
-    <circle cx="234" cy="310" r="3" fill="#ffffff" opacity="0.9"/>
-
-    <!-- City dots -->
-    <circle cx="192" cy="160" r="3"   fill="#2255aa" opacity="0.55"/>
-    <circle cx="260" cy="205" r="2.5" fill="#2255aa" opacity="0.5"/>
-    <circle cx="226" cy="85"  r="3"   fill="#cc3366" opacity="0.7"/>
+  <!-- ── Primary arterials (bright neon blue, glowing) ────────────────────── -->
+  <!-- Glow layer (blurred, wider) -->
+  <g stroke="#0ea5e9" stroke-width="6" fill="none" opacity="0.18" filter="url(#blueGlow)">
+    <path d="M 0,300    L 1440,300"/>
+    <path d="M 720,0    L 720,600"/>
+    <path d="M 240,0    C 245,200 248,400 250,600"/>
+    <path d="M 1200,0   C 1198,200 1196,400 1194,600"/>
+    <path d="M 0,100    C 360,95 720,105 1080,100 C 1200,98 1360,101 1440,100"/>
+    <path d="M 0,500    C 360,495 720,505 1080,500 C 1200,498 1360,501 1440,500"/>
+  </g>
+  <!-- Crisp top layer -->
+  <g stroke="#0ea5e9" stroke-width="2" fill="none" opacity="0.8">
+    <path d="M 0,300    L 1440,300"/>
+    <path d="M 720,0    L 720,600"/>
+    <path d="M 240,0    C 245,200 248,400 250,600"/>
+    <path d="M 1200,0   C 1198,200 1196,400 1194,600"/>
+    <path d="M 0,100    C 360,95 720,105 1080,100 C 1200,98 1360,101 1440,100"/>
+    <path d="M 0,500    C 360,495 720,505 1080,500 C 1200,498 1360,501 1440,500"/>
   </g>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PANEL 4 — Satellite                                    -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <g clip-path="url(#cp4)" transform="translate(1080,0)">
-    <!-- Terrain background – earthy tones -->
-    <rect x="0" y="0" width="360" height="560" fill="url(#terrainGrad)" opacity="0.5"/>
-
-    <!-- Organic terrain patches -->
-    <path d="M 0,300 C 40,280 80,310 120,295 C 160,280 200,300 240,285 C 280,270 320,290 360,275 L 360,560 L 0,560 Z"
-          fill="#5a4830" opacity="0.35"/>
-    <path d="M 0,380 C 50,360 100,385 150,370 C 200,355 250,375 300,360 C 325,352 345,360 360,355 L 360,560 L 0,560 Z"
-          fill="#4a3a28" opacity="0.3"/>
-
-    <!-- No grid — organic terrain contours instead -->
-    <g stroke="#7a6a50" stroke-width="0.6" fill="none" opacity="0.4">
-      <path d="M 0,290 C 50,278 100,295 150,282 C 200,269 250,285 300,272 C 325,265 345,270 360,265"/>
-      <path d="M 0,340 C 50,328 100,345 150,332 C 200,319 250,335 300,322 C 325,315 345,320 360,315"/>
-      <path d="M 0,390 C 50,378 100,395 150,382 C 200,369 250,385 300,372 C 325,365 345,370 360,365"/>
-      <path d="M 0,440 C 50,428 100,445 150,432 C 200,419 250,435 300,422"/>
-    </g>
-
-    <!-- Great Salt Lake – turquoise/teal (as seen in satellite) -->
-    <path d="M 118,22 L 158,22 L 163,28 L 163,128
-             L 260,128 C 292,130 305,155 295,192
-             C 285,229 252,258 200,264
-             C 148,270 100,252 72,220
-             C 44,188 42,155 58,130
-             L 113,128 L 113,28 Z"
-          fill="url(#waterGradSat)" opacity="0.75"/>
-
-    <!-- Shoreline mineral deposits / salt flats -->
-    <path d="M 118,22 L 158,22 L 163,28 L 163,128
-             L 260,128 C 292,130 305,155 295,192
-             C 285,229 252,258 200,264
-             C 148,270 100,252 72,220
-             C 44,188 42,155 58,130
-             L 113,128 L 113,28 Z"
-          fill="none" stroke="#a8d8c0" stroke-width="1.5" opacity="0.5"/>
-
-    <!-- Causeway – visible satellite stripe -->
-    <line x1="113" y1="130" x2="163" y2="130" stroke="#e8d8a0" stroke-width="3" opacity="0.6"/>
-
-    <!-- I-15 – thin road visible on satellite -->
-    <path d="M 248,0 C 246,80 242,180 236,280 C 232,360 228,440 224,560"
-          stroke="#d0c090" stroke-width="2" fill="none" opacity="0.55"/>
-
-    <!-- SLC marker – white ring -->
-    <circle cx="234" cy="310" r="9"  fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>
-    <circle cx="234" cy="310" r="3"  fill="#ffffff" opacity="0.85"/>
-
-    <!-- City/industrial dots -->
-    <circle cx="192" cy="160" r="3"   fill="#88ddcc" opacity="0.5"/>
-    <circle cx="260" cy="205" r="2.5" fill="#88ddcc" opacity="0.45"/>
-    <circle cx="226" cy="85"  r="3"   fill="#ff6688" opacity="0.7"/>
+  <!-- ── Highway / Interstate (neon orange) ───────────────────────────────── -->
+  <!-- Glow layer -->
+  <g stroke="#f59e0b" stroke-width="8" fill="none" opacity="0.2" filter="url(#orangeGlow)">
+    <!-- Main diagonal freeway (like I-10 / I-15) -->
+    <path d="M 1440,60  C 1300,120 1160,180 1020,250 C 880,320 740,380 600,440 C 500,480 380,520 220,580 C 130,608 60,618 -20,630"/>
+    <!-- Loop / ring section -->
+    <path d="M 580,0    C 640,60 700,150 740,240 C 780,330 790,420 760,500 C 740,550 700,580 660,600"/>
+  </g>
+  <!-- Crisp highway lines -->
+  <g fill="none">
+    <!-- Outer casing (slightly wider, darker) -->
+    <path d="M 1440,60  C 1300,120 1160,180 1020,250 C 880,320 740,380 600,440 C 500,480 380,520 220,580 C 130,608 60,618 -20,630"
+          stroke="#92400e" stroke-width="4.5" opacity="0.6"/>
+    <path d="M 580,0    C 640,60 700,150 740,240 C 780,330 790,420 760,500 C 740,550 700,580 660,600"
+          stroke="#92400e" stroke-width="4.5" opacity="0.6"/>
+    <!-- Bright centre -->
+    <path d="M 1440,60  C 1300,120 1160,180 1020,250 C 880,320 740,380 600,440 C 500,480 380,520 220,580 C 130,608 60,618 -20,630"
+          stroke="#fbbf24" stroke-width="2.2" opacity="0.9"/>
+    <path d="M 580,0    C 640,60 700,150 740,240 C 780,330 790,420 760,500 C 740,550 700,580 660,600"
+          stroke="#fbbf24" stroke-width="2.2" opacity="0.9"/>
   </g>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- Panel dividers                                         -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <g stroke="#4a7aaa" stroke-width="0.75" opacity="0.4">
-    <line x1="360"  y1="0" x2="360"  y2="560"/>
-    <line x1="720"  y1="0" x2="720"  y2="560"/>
-    <line x1="1080" y1="0" x2="1080" y2="560"/>
+  <!-- ── Intersection nodes / junction glow dots ──────────────────────────── -->
+  <!-- Blue nodes at arterial intersections -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="720"  cy="300" r="5"  fill="#0ea5e9" opacity="0.9"/>
+    <circle cx="240"  cy="300" r="3.5" fill="#0ea5e9" opacity="0.75"/>
+    <circle cx="1200" cy="300" r="3.5" fill="#0ea5e9" opacity="0.75"/>
+    <circle cx="720"  cy="100" r="3"  fill="#0ea5e9" opacity="0.65"/>
+    <circle cx="720"  cy="500" r="3"  fill="#0ea5e9" opacity="0.65"/>
+    <circle cx="250"  cy="100" r="2.5" fill="#38bdf8" opacity="0.6"/>
+    <circle cx="1194" cy="100" r="2.5" fill="#38bdf8" opacity="0.6"/>
   </g>
+  <!-- Orange nodes at highway intersections -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="740"  cy="240" r="5"  fill="#fbbf24" opacity="0.85"/>
+    <circle cx="1020" cy="250" r="4"  fill="#f59e0b" opacity="0.75"/>
+    <circle cx="600"  cy="440" r="4"  fill="#f59e0b" opacity="0.75"/>
+  </g>
+  <!-- Crisp dot centres -->
+  <circle cx="720"  cy="300" r="3"   fill="#7dd3fc" opacity="0.95"/>
+  <circle cx="240"  cy="300" r="2"   fill="#7dd3fc" opacity="0.85"/>
+  <circle cx="1200" cy="300" r="2"   fill="#7dd3fc" opacity="0.85"/>
+  <circle cx="740"  cy="240" r="2.5" fill="#fde68a" opacity="0.95"/>
+  <circle cx="1020" cy="250" r="2"   fill="#fde68a" opacity="0.85"/>
+  <circle cx="600"  cy="440" r="2"   fill="#fde68a" opacity="0.85"/>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- Edge fade mask over everything                         -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <rect width="1440" height="560" fill="url(#fadeX)" style="mix-blend-mode:multiply"/>
+  <!-- ── Edge fade masks ────────────────────────────────────────────────────── -->
+  <rect width="200"  height="600" fill="url(#fadeLeft)"   opacity="1"/>
+  <rect x="1240" width="200" height="600" fill="url(#fadeRight)"  opacity="1"/>
+  <rect width="1440" height="110" fill="url(#fadeTop)"    opacity="1"/>
+  <rect y="490"  width="1440" height="110" fill="url(#fadeBottom)" opacity="1"/>
 </svg>

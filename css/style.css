@@ -116,7 +116,7 @@ body {
     position: absolute;
     inset: 0;
     background: url('../assets/map-bg.svg') center/cover no-repeat;
-    opacity: 0.09;
+    opacity: 0.22;
     pointer-events: none;
 }
 
