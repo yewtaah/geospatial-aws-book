@@ -5,119 +5,733 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spatial Data Processing – Geospatial Data Analytics on AWS</title>
     <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
-        .playground-container {
-            max-width: 900px;
-            margin: 3rem auto;
-            padding: 0 20px;
+        body { display: flex; flex-direction: column; min-height: 100vh; }
+        .pg-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            flex: 1;
+            height: calc(100vh - 56px);
         }
-        .playground-content {
+        .pg-controls {
             background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-left: 2px solid var(--steel);
-            border-radius: 2px;
-            padding: 2rem;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.1rem;
         }
-        .playground-content h1 {
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: #f0f6fc;
-            margin-bottom: 0.4rem;
-            letter-spacing: -0.02em;
-        }
-        .playground-content > p {
+        .ctrl-label {
+            font-size: 0.69rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
             color: var(--text-muted);
-            margin-bottom: 2rem;
-            font-size: 0.88rem;
+            margin-bottom: 0.5rem;
         }
-        .playground-demo {
-            background: var(--bg);
-            padding: 3rem 2rem;
-            border-radius: 2px;
-            margin: 2rem 0;
-            min-height: 240px;
+        .ctrl-section {
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+        .opt-btn {
             display: flex;
             align-items: center;
-            justify-content: center;
-            border: 1px dashed var(--border-mid);
-        }
-        .demo-placeholder {
-            text-align: center;
+            gap: 0.65rem;
+            width: 100%;
+            text-align: left;
+            padding: 0.55rem 0.85rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
             color: var(--text-muted);
+            font-size: 0.83rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-bottom: 0.3rem;
         }
-        .demo-placeholder p { font-size: 0.85rem; margin-top: 0.5rem; }
-        .playground-content h2 {
-            font-family: 'Courier New', monospace;
-            font-size: 0.7rem;
+        .opt-btn:hover { border-color: var(--sky); color: var(--sky); }
+        .opt-btn.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.1); }
+        .opt-btn .op-icon { font-size: 0.95rem; flex-shrink: 0; width: 18px; text-align: center; }
+        .opt-btn .op-info { display: flex; flex-direction: column; }
+        .opt-btn .op-name { font-weight: 600; font-size: 0.83rem; line-height: 1.2; }
+        .opt-btn .op-desc { font-size: 0.7rem; opacity: 0.65; line-height: 1.3; }
+        .param-group { margin-bottom: 0.7rem; }
+        .param-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+        }
+        .param-group label .pval { color: var(--sky); font-weight: 600; }
+        .range-input { width: 100%; accent-color: var(--sky); }
+        .param-group select {
+            width: 100%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-mid);
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 0.83rem;
+            padding: 0.4rem 0.65rem;
+            cursor: pointer;
+        }
+        .param-group select:focus { outline: none; border-color: var(--sky); }
+        .no-params { font-size: 0.77rem; color: var(--text-muted); font-style: italic; }
+        .run-btn {
+            width: 100%;
+            padding: 0.65rem;
+            background: var(--sky);
+            border: none;
+            border-radius: 3px;
+            color: #05080f;
             font-weight: 700;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
+            font-size: 0.88rem;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            transition: all 0.15s;
+        }
+        .run-btn:hover { background: var(--cyan); }
+        .run-btn:active { transform: scale(0.98); }
+        .run-btn.running { background: var(--bg-elevated); color: var(--sky); border: 1px solid var(--border-mid); cursor: default; }
+        .status-msg {
+            font-size: 0.76rem;
             color: var(--cyan);
-            margin: 2rem 0 0.6rem;
+            padding: 0.4rem 0 0;
+            min-height: 1.3rem;
+            text-align: center;
         }
-        .playground-content ul {
-            list-style: none;
-            padding: 0;
-            border-top: 1px solid var(--border);
+        .status-msg.error { color: #f87171; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.45rem;
         }
-        .playground-content ul li {
-            padding: 0.55rem 0 0.55rem 1.1rem;
-            position: relative;
+        .stat-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.55rem 0.75rem;
+            transition: border-color 0.2s;
+        }
+        .stat-card.lit { border-color: var(--border-mid); }
+        .stat-val {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-dim);
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .stat-card.lit .stat-val { color: var(--sky); }
+        .stat-lbl {
+            font-size: 0.67rem;
             color: var(--text-muted);
-            font-size: 0.85rem;
-            border-bottom: 1px solid var(--border);
+            margin-top: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
         }
-        .playground-content ul li:last-child { border-bottom: none; }
-        .playground-content ul li::before {
-            content: '';
+        .code-block {
+            background: #02040a;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.85rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.71rem;
+            line-height: 1.65;
+            color: #8b9cc4;
+            overflow-x: auto;
+            white-space: pre;
+            max-height: 190px;
+            overflow-y: auto;
+        }
+        .code-block .kw { color: #c792ea; }
+        .code-block .fn { color: #82aaff; }
+        .code-block .str { color: #c3e88d; }
+        .code-block .cm { color: #4d5e78; font-style: italic; }
+        .code-block .num { color: #f78c6c; }
+        .map-wrap { position: relative; flex: 1; }
+        #map { height: 100%; width: 100%; }
+        .leaflet-container { background: #0d1117; }
+        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        .leaflet-control-zoom a:hover { color: var(--sky) !important; }
+        .leaflet-control-attribution { background: rgba(5,8,15,0.85) !important; color: var(--text-muted) !important; font-size: 0.65rem !important; }
+        .leaflet-control-attribution a { color: var(--text-muted) !important; }
+        .leaflet-popup-content-wrapper { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border-mid); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); font-size: 0.8rem; }
+        .leaflet-popup-tip { background: var(--bg-elevated); }
+        .map-legend {
             position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 3px;
-            background: var(--steel);
-            border-radius: 50%;
+            bottom: 26px;
+            left: 12px;
+            z-index: 1000;
+            background: rgba(8,13,26,0.92);
+            border: 1px solid var(--border-mid);
+            border-radius: 4px;
+            padding: 0.55rem 0.8rem;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            backdrop-filter: blur(8px);
+            user-select: none;
         }
-        .playground-content a { color: var(--sky); }
-        .playground-content a:hover { color: var(--cyan); }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.28rem;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .legend-item:last-child { margin-bottom: 0; }
+        .legend-item.muted { opacity: 0.35; }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .chapter-tag {
+            font-size: 0.7rem;
+            color: var(--sky);
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+        @media (max-width: 768px) {
+            .pg-layout { grid-template-columns: 1fr; grid-template-rows: auto 380px; height: auto; }
+        }
     </style>
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
-            <div class="nav-brand"><a href="../" style="color:inherit;text-decoration:none;">← Geospatial<span style="color:var(--primary)">AWS</span></a></div>
-            <div style="color:var(--text-muted); font-size:0.85rem; font-weight:500;">Spatial Data Processing</div>
+            <div class="nav-brand"><a href="../" style="color:inherit;text-decoration:none;">← Geospatial<span style="color:var(--sky)">AWS</span></a></div>
+            <div style="color:var(--text-muted);font-size:0.85rem;font-weight:500;">Spatial Data Processing</div>
         </div>
     </nav>
 
-    <div class="playground-container">
-        <div class="playground-content">
-            <h1>Spatial Data Processing Playground</h1>
-            <p>An interactive demo of geospatial data processing patterns on AWS — coming soon.</p>
+    <div class="pg-layout">
+        <aside class="pg-controls">
+            <div>
+                <div class="chapter-tag">Chapter 4</div>
+                <h2 style="font-size:1rem;font-weight:700;color:#f0f6fc;margin-top:0.3rem;">Spatial Processing</h2>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.3rem;line-height:1.5;">Run spatial operations on sample data and see the equivalent AWS Lambda / Glue code.</p>
+            </div>
 
-            <div class="playground-demo">
-                <div class="demo-placeholder">
-                    <div style="font-size:2.5rem; margin-bottom:0.5rem;">⚙️</div>
-                    <p>Interactive demo will load here</p>
-                    <p style="font-size:0.8rem; opacity:0.6;">Check back soon for hands-on examples</p>
+            <div class="ctrl-section">
+                <div class="ctrl-label">Input Dataset</div>
+                <button class="opt-btn active" onclick="selectDataset('cities', this)">
+                    <span class="op-icon">📍</span>
+                    <span class="op-info"><span class="op-name">US Major Cities</span><span class="op-desc">30 point features</span></span>
+                </button>
+                <button class="opt-btn" onclick="selectDataset('regions', this)">
+                    <span class="op-icon">🗺</span>
+                    <span class="op-info"><span class="op-name">US Regions</span><span class="op-desc">10 polygon features</span></span>
+                </button>
+            </div>
+
+            <div class="ctrl-section">
+                <div class="ctrl-label">Processing Operation</div>
+                <button class="opt-btn active" onclick="selectOp('buffer', this)">
+                    <span class="op-icon">⭕</span>
+                    <span class="op-info"><span class="op-name">Buffer</span><span class="op-desc">Expand geometry by distance</span></span>
+                </button>
+                <button class="opt-btn" onclick="selectOp('convexhull', this)">
+                    <span class="op-icon">📐</span>
+                    <span class="op-info"><span class="op-name">Convex Hull</span><span class="op-desc">Minimum bounding polygon</span></span>
+                </button>
+                <button class="opt-btn" onclick="selectOp('centroid', this)">
+                    <span class="op-icon">🎯</span>
+                    <span class="op-info"><span class="op-name">Centroid</span><span class="op-desc">Center point per feature</span></span>
+                </button>
+                <button class="opt-btn" onclick="selectOp('dissolve', this)">
+                    <span class="op-icon">🔗</span>
+                    <span class="op-info"><span class="op-name">Dissolve</span><span class="op-desc">Merge features by attribute</span></span>
+                </button>
+                <button class="opt-btn" onclick="selectOp('voronoi', this)">
+                    <span class="op-icon">🔷</span>
+                    <span class="op-info"><span class="op-name">Voronoi</span><span class="op-desc">Proximity/Thiessen polygons</span></span>
+                </button>
+            </div>
+
+            <div class="ctrl-section" id="params-section">
+                <div class="ctrl-label">Parameters</div>
+                <div id="params-content"></div>
+            </div>
+
+            <div>
+                <button class="run-btn" id="run-btn" onclick="runOperation()">▶  Run Processing</button>
+                <div class="status-msg" id="status-msg"></div>
+            </div>
+
+            <div class="ctrl-section">
+                <div class="ctrl-label">Output Stats</div>
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-card" id="sc-in">
+                        <div class="stat-val" id="stat-in">—</div>
+                        <div class="stat-lbl">Input Features</div>
+                    </div>
+                    <div class="stat-card" id="sc-out">
+                        <div class="stat-val" id="stat-out">—</div>
+                        <div class="stat-lbl">Output Features</div>
+                    </div>
+                    <div class="stat-card" id="sc-area">
+                        <div class="stat-val" id="stat-area">—</div>
+                        <div class="stat-lbl">Area km²</div>
+                    </div>
+                    <div class="stat-card" id="sc-time">
+                        <div class="stat-val" id="stat-time">—</div>
+                        <div class="stat-lbl">Proc. Time ms</div>
+                    </div>
                 </div>
             </div>
 
-            <h2>What You'll Learn</h2>
-            <ul>
-                <li>Data ingestion and transformation pipelines</li>
-                <li>Working with GeoJSON and spatial formats</li>
-                <li>Processing with AWS Lambda and Glue</li>
-                <li>Performance optimization at scale</li>
-            </ul>
+            <div class="ctrl-section">
+                <div class="ctrl-label">AWS Code — GeoPandas / Lambda</div>
+                <div class="code-block" id="code-block"></div>
+            </div>
+        </aside>
 
-            <h2>Resources</h2>
-            <ul>
-                <li><a href="https://github.com/yewtaah/geospatial-aws-book-code" target="_blank">View code examples on GitHub</a></li>
-                <li><a href="https://docs.aws.amazon.com/location/" target="_blank">AWS Location Service documentation</a></li>
-            </ul>
+        <div class="map-wrap">
+            <div id="map"></div>
+            <div class="map-legend">
+                <div class="legend-item" id="leg-input" onclick="toggleLayer('input')">
+                    <div class="legend-dot" style="background:#2f7fc1;"></div>
+                    <span>Input layer</span>
+                </div>
+                <div class="legend-item" id="leg-output" onclick="toggleLayer('output')">
+                    <div class="legend-dot" style="background:#0ea5e9;"></div>
+                    <span>Output layer</span>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script>
+    // ── Datasets ──────────────────────────────────────────────────────────────
+    const DATASETS = {
+        cities: {
+            label: 'US Major Cities',
+            geojson: { type:'FeatureCollection', features:[
+                {type:'Feature',properties:{name:'New York',pop:8336817,region:'Northeast'},geometry:{type:'Point',coordinates:[-74.006,40.7128]}},
+                {type:'Feature',properties:{name:'Los Angeles',pop:3979576,region:'West'},geometry:{type:'Point',coordinates:[-118.2437,34.0522]}},
+                {type:'Feature',properties:{name:'Chicago',pop:2693976,region:'Midwest'},geometry:{type:'Point',coordinates:[-87.6298,41.8781]}},
+                {type:'Feature',properties:{name:'Houston',pop:2304580,region:'South'},geometry:{type:'Point',coordinates:[-95.3698,29.7604]}},
+                {type:'Feature',properties:{name:'Phoenix',pop:1608139,region:'West'},geometry:{type:'Point',coordinates:[-112.074,33.4484]}},
+                {type:'Feature',properties:{name:'Philadelphia',pop:1584064,region:'Northeast'},geometry:{type:'Point',coordinates:[-75.1652,39.9526]}},
+                {type:'Feature',properties:{name:'San Antonio',pop:1547253,region:'South'},geometry:{type:'Point',coordinates:[-98.4936,29.4241]}},
+                {type:'Feature',properties:{name:'San Diego',pop:1423851,region:'West'},geometry:{type:'Point',coordinates:[-117.1611,32.7157]}},
+                {type:'Feature',properties:{name:'Dallas',pop:1343573,region:'South'},geometry:{type:'Point',coordinates:[-96.797,32.7767]}},
+                {type:'Feature',properties:{name:'San Jose',pop:1021795,region:'West'},geometry:{type:'Point',coordinates:[-121.8863,37.3382]}},
+                {type:'Feature',properties:{name:'Austin',pop:978908,region:'South'},geometry:{type:'Point',coordinates:[-97.7431,30.2672]}},
+                {type:'Feature',properties:{name:'Jacksonville',pop:911507,region:'Southeast'},geometry:{type:'Point',coordinates:[-81.6557,30.3322]}},
+                {type:'Feature',properties:{name:'Fort Worth',pop:909585,region:'South'},geometry:{type:'Point',coordinates:[-97.3208,32.7555]}},
+                {type:'Feature',properties:{name:'Columbus',pop:898553,region:'Midwest'},geometry:{type:'Point',coordinates:[-82.9988,39.9612]}},
+                {type:'Feature',properties:{name:'Charlotte',pop:885708,region:'Southeast'},geometry:{type:'Point',coordinates:[-80.8431,35.2271]}},
+                {type:'Feature',properties:{name:'San Francisco',pop:883305,region:'West'},geometry:{type:'Point',coordinates:[-122.4194,37.7749]}},
+                {type:'Feature',properties:{name:'Indianapolis',pop:876384,region:'Midwest'},geometry:{type:'Point',coordinates:[-86.1581,39.7684]}},
+                {type:'Feature',properties:{name:'Seattle',pop:753675,region:'West'},geometry:{type:'Point',coordinates:[-122.3321,47.6062]}},
+                {type:'Feature',properties:{name:'Denver',pop:727211,region:'Mountain'},geometry:{type:'Point',coordinates:[-104.9903,39.7392]}},
+                {type:'Feature',properties:{name:'Nashville',pop:689447,region:'Southeast'},geometry:{type:'Point',coordinates:[-86.7816,36.1627]}},
+                {type:'Feature',properties:{name:'Las Vegas',pop:641903,region:'West'},geometry:{type:'Point',coordinates:[-115.1398,36.1699]}},
+                {type:'Feature',properties:{name:'Boston',pop:694583,region:'Northeast'},geometry:{type:'Point',coordinates:[-71.0589,42.3601]}},
+                {type:'Feature',properties:{name:'El Paso',pop:681728,region:'South'},geometry:{type:'Point',coordinates:[-106.485,31.7619]}},
+                {type:'Feature',properties:{name:'Oklahoma City',pop:655057,region:'South'},geometry:{type:'Point',coordinates:[-97.5164,35.4676]}},
+                {type:'Feature',properties:{name:'Portland',pop:652503,region:'West'},geometry:{type:'Point',coordinates:[-122.6765,45.5051]}},
+                {type:'Feature',properties:{name:'Atlanta',pop:506811,region:'Southeast'},geometry:{type:'Point',coordinates:[-84.388,33.749]}},
+                {type:'Feature',properties:{name:'Miami',pop:467963,region:'Southeast'},geometry:{type:'Point',coordinates:[-80.1918,25.7617]}},
+                {type:'Feature',properties:{name:'Minneapolis',pop:429606,region:'Midwest'},geometry:{type:'Point',coordinates:[-93.265,44.9778]}},
+                {type:'Feature',properties:{name:'New Orleans',pop:383997,region:'South'},geometry:{type:'Point',coordinates:[-90.0715,29.9511]}},
+                {type:'Feature',properties:{name:'Kansas City',pop:495327,region:'Midwest'},geometry:{type:'Point',coordinates:[-94.5786,39.0997]}}
+            ]}
+        },
+        regions: {
+            label: 'US Regions',
+            geojson: { type:'FeatureCollection', features:[
+                {type:'Feature',properties:{name:'Northeast',area_type:'Coastal'},geometry:{type:'Polygon',coordinates:[[[-79,40],[-67,40],[-67,47],[-79,47],[-79,40]]]}},
+                {type:'Feature',properties:{name:'Mid-Atlantic',area_type:'Coastal'},geometry:{type:'Polygon',coordinates:[[[-84,36],[-74,36],[-74,40],[-84,40],[-84,36]]]}},
+                {type:'Feature',properties:{name:'Southeast',area_type:'Coastal'},geometry:{type:'Polygon',coordinates:[[[-87,24],[-80,24],[-80,36],[-87,36],[-87,24]]]}},
+                {type:'Feature',properties:{name:'South',area_type:'Inland'},geometry:{type:'Polygon',coordinates:[[[-97,25],[-81,25],[-81,36],[-97,36],[-97,25]]]}},
+                {type:'Feature',properties:{name:'Midwest',area_type:'Inland'},geometry:{type:'Polygon',coordinates:[[[-96,36],[-84,36],[-84,47],[-96,47],[-96,36]]]}},
+                {type:'Feature',properties:{name:'Great Plains',area_type:'Inland'},geometry:{type:'Polygon',coordinates:[[[-104,37],[-96,37],[-96,49],[-104,49],[-104,37]]]}},
+                {type:'Feature',properties:{name:'Mountain West',area_type:'Inland'},geometry:{type:'Polygon',coordinates:[[[-116,37],[-104,37],[-104,42],[-116,42],[-116,37]]]}},
+                {type:'Feature',properties:{name:'Southwest',area_type:'Arid'},geometry:{type:'Polygon',coordinates:[[[-117,31],[-103,31],[-103,37],[-117,37],[-117,31]]]}},
+                {type:'Feature',properties:{name:'California',area_type:'Coastal'},geometry:{type:'Polygon',coordinates:[[[-124,32],[-114,32],[-114,42],[-124,42],[-124,32]]]}},
+                {type:'Feature',properties:{name:'Pacific NW',area_type:'Coastal'},geometry:{type:'Polygon',coordinates:[[[-124,42],[-116,42],[-116,49],[-124,49],[-124,42]]]}}
+            ]}
+        }
+    };
+
+    // ── Operations ────────────────────────────────────────────────────────────
+    const OPERATIONS = {
+        buffer: {
+            params: [
+                {id:'distance', label:'Distance', unit:'km', type:'range', min:20, max:500, step:10, default:150},
+                {id:'steps',    label:'Segments', unit:'',   type:'range', min:4,  max:32,  step:4,  default:16}
+            ],
+            run(geojson, p) {
+                return turf.buffer(geojson, p.distance, {units:'kilometers', steps:p.steps});
+            },
+            code(p) {
+                return `<span class="cm"># AWS Lambda / Glue – GeoPandas buffer</span>
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+
+gdf = gpd.read_file(<span class="str">"s3://my-bucket/cities.geojson"</span>)
+
+<span class="cm"># Project to equal-area CRS for accurate distances</span>
+gdf_proj = gdf.to_crs(<span class="str">"EPSG:5070"</span>)  <span class="cm"># Albers Equal Area</span>
+
+<span class="cm"># Buffer by ${p.distance} km</span>
+gdf_buf = gdf_proj.copy()
+gdf_buf.geometry = gdf_proj.buffer(<span class="num">${p.distance * 1000}</span>)
+
+<span class="cm"># Reproject back to WGS-84 and write</span>
+result = gdf_buf.to_crs(<span class="str">"EPSG:4326"</span>)
+result.to_file(<span class="str">"/tmp/buffered.geojson"</span>)`;
+            }
+        },
+        convexhull: {
+            params: [],
+            run(geojson) {
+                const hull = turf.convex(geojson);
+                return hull ? {type:'FeatureCollection', features:[hull]} : geojson;
+            },
+            code() {
+                return `<span class="cm"># AWS Lambda – Convex Hull</span>
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+<span class="kw">from</span> shapely.ops <span class="kw">import</span> unary_union
+
+gdf = gpd.read_file(<span class="str">"s3://my-bucket/input.geojson"</span>)
+
+<span class="cm"># Union all geometries then take convex hull</span>
+hull_geom = unary_union(gdf.geometry).convex_hull
+
+result = gpd.GeoDataFrame(
+    [{<span class="str">"label"</span>: <span class="str">"convex_hull"</span>}],
+    geometry=[hull_geom],
+    crs=gdf.crs
+)
+result.to_file(<span class="str">"/tmp/hull.geojson"</span>)`;
+            }
+        },
+        centroid: {
+            params: [],
+            run(geojson) {
+                const features = geojson.features.map(f => {
+                    const c = turf.centroid(f);
+                    c.properties = Object.assign({}, f.properties);
+                    return c;
+                });
+                return {type:'FeatureCollection', features};
+            },
+            code() {
+                return `<span class="cm"># AWS Glue – Centroid extraction</span>
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+
+gdf = gpd.read_file(<span class="str">"s3://my-bucket/regions.geojson"</span>)
+
+<span class="cm"># Compute centroid for each polygon</span>
+gdf[<span class="str">"centroid"</span>] = gdf.geometry.centroid
+
+<span class="cm"># Promote centroid column to active geometry</span>
+centroids = gdf.set_geometry(<span class="str">"centroid"</span>).drop(
+    columns=[<span class="str">"geometry"</span>]
+)
+centroids.to_file(<span class="str">"/tmp/centroids.geojson"</span>)`;
+            }
+        },
+        dissolve: {
+            params: [
+                {id:'field', label:'Dissolve by', type:'select', options:[]}
+            ],
+            run(geojson, p) {
+                const polys = geojson.features.filter(
+                    f => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'
+                );
+                if (!polys.length) {
+                    throw new Error('Dissolve requires polygon features — switch to US Regions.');
+                }
+                const fc = {type:'FeatureCollection', features: polys};
+                return turf.dissolve(fc, {propertyName: p.field || undefined});
+            },
+            code(p) {
+                return `<span class="cm"># AWS Glue – Dissolve polygons by attribute</span>
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+
+gdf = gpd.read_file(<span class="str">"s3://my-bucket/regions.geojson"</span>)
+
+<span class="cm"># Dissolve polygons that share the same '${p.field || 'area_type'}'</span>
+dissolved = gdf.dissolve(
+    by=<span class="str">"${p.field || 'area_type'}"</span>,
+    aggfunc=<span class="str">"first"</span>
+).reset_index()
+
+<span class="cm"># Slight simplification to reduce file size</span>
+dissolved.geometry = dissolved.geometry.simplify(<span class="num">0.01</span>)
+dissolved.to_file(<span class="str">"/tmp/dissolved.geojson"</span>)`;
+            }
+        },
+        voronoi: {
+            params: [
+                {id:'buffer', label:'Bbox padding', unit:'°', type:'range', min:1, max:10, step:1, default:4}
+            ],
+            run(geojson, p) {
+                let pts = geojson;
+                if (geojson.features[0] && geojson.features[0].geometry.type !== 'Point') {
+                    pts = {type:'FeatureCollection', features: geojson.features.map(f => turf.centroid(f))};
+                }
+                const bbox = turf.bbox(pts);
+                const expanded = [bbox[0]-p.buffer, bbox[1]-p.buffer, bbox[2]+p.buffer, bbox[3]+p.buffer];
+                return turf.voronoi(pts, {bbox: expanded});
+            },
+            code(p) {
+                return `<span class="cm"># AWS Lambda – Voronoi / Thiessen polygons</span>
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+<span class="kw">from</span> shapely.ops <span class="kw">import</span> voronoi_diagram
+<span class="kw">from</span> shapely.geometry <span class="kw">import</span> MultiPoint, box
+
+gdf = gpd.read_file(<span class="str">"s3://my-bucket/cities.geojson"</span>)
+
+<span class="cm"># Build envelope for clipping (+${p.buffer}° padding)</span>
+bounds = gdf.total_bounds
+envelope = box(
+    bounds[<span class="num">0</span>]-<span class="num">${p.buffer}</span>, bounds[<span class="num">1</span>]-<span class="num">${p.buffer}</span>,
+    bounds[<span class="num">2</span>]+<span class="num">${p.buffer}</span>, bounds[<span class="num">3</span>]+<span class="num">${p.buffer}</span>
+)
+mp = MultiPoint(list(gdf.geometry))
+regions = voronoi_diagram(mp, envelope=envelope)
+
+result = gpd.GeoDataFrame(
+    geometry=list(regions.geoms), crs=gdf.crs
+)
+result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
+            }
+        }
+    };
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    let currentDataset = 'cities';
+    let currentOp = 'buffer';
+    let inputVisible = true;
+    let outputVisible = true;
+    let inputLayer = null;
+    let outputLayer = null;
+
+    // ── Map ────────────────────────────────────────────────────────────────────
+    const map = L.map('map').setView([39, -98], 4);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OSM contributors © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    const IN_STYLE  = {color:'#2f7fc1', fillColor:'#2f7fc1', fillOpacity:0.12, weight:1.5};
+    const OUT_STYLE = {color:'#0ea5e9', fillColor:'0ea5e9',  fillOpacity:0.35, weight:2};
+
+    function makeLayer(geojson, style, isPoint) {
+        return L.geoJSON(geojson, {
+            style: () => style,
+            pointToLayer: (f, ll) => L.circleMarker(ll, {radius: isPoint ? 6 : 7, ...style}),
+            onEachFeature: (f, layer) => {
+                if (f.properties && Object.keys(f.properties).length) {
+                    const rows = Object.entries(f.properties)
+                        .map(([k,v]) => `<span style="color:var(--text-muted)">${k}:</span> ${v}`)
+                        .join('<br>');
+                    layer.bindPopup(`<div style="font-size:0.78rem;line-height:1.6">${rows}</div>`);
+                }
+            }
+        });
+    }
+
+    function clearOutput() {
+        if (outputLayer) { map.removeLayer(outputLayer); outputLayer = null; }
+    }
+
+    function showInput(geojson) {
+        if (inputLayer) { map.removeLayer(inputLayer); inputLayer = null; }
+        const isPoint = geojson.features[0] && geojson.features[0].geometry.type === 'Point';
+        inputLayer = makeLayer(geojson, IN_STYLE, isPoint).addTo(map);
+        if (!inputVisible) applyVisibility(inputLayer, false, IN_STYLE);
+    }
+
+    function showOutput(geojson) {
+        clearOutput();
+        if (!geojson) return;
+        const isPoint = geojson.features[0] && geojson.features[0].geometry.type === 'Point';
+        outputLayer = makeLayer(geojson, OUT_STYLE, isPoint).addTo(map);
+        if (!outputVisible) applyVisibility(outputLayer, false, OUT_STYLE);
+    }
+
+    function applyVisibility(layer, visible, style) {
+        if (!layer) return;
+        if (visible) {
+            layer.setStyle(style);
+        } else {
+            layer.setStyle({opacity:0, fillOpacity:0, stroke:false});
+        }
+    }
+
+    // ── Parameters ─────────────────────────────────────────────────────────────
+    function getFields() {
+        const features = DATASETS[currentDataset].geojson.features;
+        return features.length ? Object.keys(features[0].properties || {}) : [];
+    }
+
+    function renderParams() {
+        const params = OPERATIONS[currentOp].params;
+        const section = document.getElementById('params-section');
+        const content = document.getElementById('params-content');
+
+        if (!params.length) {
+            content.innerHTML = '<p class="no-params">No parameters — click Run to proceed.</p>';
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = 'block';
+
+        let html = '';
+        for (const p of params) {
+            if (p.type === 'range') {
+                html += `<div class="param-group">
+                    <label>${p.label} <span class="pval" id="pval-${p.id}">${p.default}</span>${p.unit ? '&thinsp;' + p.unit : ''}</label>
+                    <input type="range" class="range-input" id="param-${p.id}"
+                        min="${p.min}" max="${p.max}" step="${p.step}" value="${p.default}"
+                        oninput="document.getElementById('pval-${p.id}').textContent=this.value; updateCode()">
+                </div>`;
+            } else if (p.type === 'select') {
+                const fields = getFields();
+                const opts = fields.map(f => `<option value="${f}">${f}</option>`).join('');
+                html += `<div class="param-group">
+                    <label>${p.label}</label>
+                    <select id="param-${p.id}" onchange="updateCode()">${opts}</select>
+                </div>`;
+            }
+        }
+        content.innerHTML = html;
+    }
+
+    function getParams() {
+        const result = {};
+        for (const p of OPERATIONS[currentOp].params) {
+            const el = document.getElementById(`param-${p.id}`);
+            if (!el) continue;
+            result[p.id] = p.type === 'range' ? parseFloat(el.value) : el.value;
+        }
+        return result;
+    }
+
+    function updateCode() {
+        document.getElementById('code-block').innerHTML =
+            OPERATIONS[currentOp].code(getParams());
+    }
+
+    // ── Selection handlers ─────────────────────────────────────────────────────
+    function selectDataset(key, btn) {
+        document.querySelectorAll('[onclick^="selectDataset"]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentDataset = key;
+        clearOutput();
+        showInput(DATASETS[key].geojson);
+        renderParams();
+        updateCode();
+        resetStats();
+        setStatus('', false);
+    }
+
+    function selectOp(key, btn) {
+        document.querySelectorAll('[onclick^="selectOp"]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentOp = key;
+        clearOutput();
+        renderParams();
+        updateCode();
+        resetStats();
+        setStatus('', false);
+    }
+
+    // ── Run ────────────────────────────────────────────────────────────────────
+    function runOperation() {
+        const btn = document.getElementById('run-btn');
+        btn.classList.add('running');
+        btn.textContent = '⏳  Processing…';
+        setStatus('', false);
+
+        setTimeout(() => {
+            try {
+                const t0 = performance.now();
+                const input = DATASETS[currentDataset].geojson;
+                const p = getParams();
+                const output = OPERATIONS[currentOp].run(input, p);
+                const elapsed = Math.round(performance.now() - t0);
+
+                showOutput(output);
+
+                const inCount = input.features.length;
+                const outCount = (output && output.features)
+                    ? output.features.filter(f => f && f.geometry).length : 0;
+
+                let totalArea = 0;
+                if (output && output.features) {
+                    output.features.forEach(f => {
+                        if (f && f.geometry &&
+                            (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')) {
+                            try { totalArea += turf.area(f); } catch(e) {}
+                        }
+                    });
+                }
+
+                updateStats(inCount, outCount, Math.round(totalArea / 1e6), elapsed);
+                setStatus(`✓ ${outCount} output feature${outCount !== 1 ? 's' : ''} — click map features to inspect`, false);
+            } catch(err) {
+                setStatus(err.message, true);
+                console.error(err);
+            }
+            btn.classList.remove('running');
+            btn.textContent = '▶  Run Processing';
+        }, 50);
+    }
+
+    // ── Stats ──────────────────────────────────────────────────────────────────
+    function updateStats(inN, outN, areaSqKm, ms) {
+        document.getElementById('stat-in').textContent   = inN;
+        document.getElementById('stat-out').textContent  = outN;
+        document.getElementById('stat-area').textContent = areaSqKm > 0 ? areaSqKm.toLocaleString() : '—';
+        document.getElementById('stat-time').textContent = ms;
+        ['sc-in','sc-out','sc-area','sc-time'].forEach(id =>
+            document.getElementById(id).classList.add('lit'));
+    }
+
+    function resetStats() {
+        ['stat-in','stat-out','stat-area','stat-time'].forEach(id =>
+            document.getElementById(id).textContent = '—');
+        ['sc-in','sc-out','sc-area','sc-time'].forEach(id =>
+            document.getElementById(id).classList.remove('lit'));
+    }
+
+    function setStatus(msg, isError) {
+        const el = document.getElementById('status-msg');
+        el.textContent = msg;
+        el.className = 'status-msg' + (isError ? ' error' : '');
+    }
+
+    // ── Layer toggles ──────────────────────────────────────────────────────────
+    function toggleLayer(which) {
+        if (which === 'input') {
+            inputVisible = !inputVisible;
+            document.getElementById('leg-input').classList.toggle('muted', !inputVisible);
+            applyVisibility(inputLayer, inputVisible, IN_STYLE);
+        } else {
+            outputVisible = !outputVisible;
+            document.getElementById('leg-output').classList.toggle('muted', !outputVisible);
+            applyVisibility(outputLayer, outputVisible, OUT_STYLE);
+        }
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    showInput(DATASETS.cities.geojson);
+    renderParams();
+    updateCode();
+    </script>
 </body>
 </html>

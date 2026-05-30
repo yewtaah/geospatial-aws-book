@@ -198,7 +198,8 @@
 
                 <div class="author-row">
                     <div class="author-photo-cell">
-                        <img src="assets/scott.jpg" alt="Scott Bateman" class="author-image" loading="lazy"
+                        <img src="assets/scott.jpg" alt="Scott Bateman" class="author-image clickable" loading="lazy"
+                             onclick="openLightbox('assets/scott.jpg','Scott Bateman')"
                              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                         <div class="author-image-placeholder" style="display:none;">SB</div>
                     </div>
@@ -217,7 +218,8 @@
 
                 <div class="author-row">
                     <div class="author-photo-cell">
-                        <img src="assets/janahang.jpg" alt="Janahan Gnanachandran" class="author-image" loading="lazy"
+                        <img src="assets/janahang.jpg" alt="Janahan Gnanachandran" class="author-image clickable" loading="lazy"
+                             onclick="openLightbox('assets/janahang.jpg','Janahan Gnanachandran')"
                              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                         <div class="author-image-placeholder" style="display:none;">JG</div>
                     </div>
@@ -233,7 +235,8 @@
 
                 <div class="author-row">
                     <div class="author-photo-cell">
-                        <img src="assets/jeff.jpg" alt="Jeff DeMuth" class="author-image" loading="lazy"
+                        <img src="assets/jeff.jpg" alt="Jeff DeMuth" class="author-image clickable" loading="lazy"
+                             onclick="openLightbox('assets/jeff.jpg','Jeff DeMuth')"
                              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                         <div class="author-image-placeholder" style="display:none;">JD</div>
 
@@ -260,6 +263,13 @@
             </div>
         </div>
     </footer>
+
+    <!-- Lightbox -->
+    <div id="lightbox" role="dialog" aria-modal="true" onclick="closeLightbox()">
+        <button id="lightbox-close" aria-label="Close" onclick="closeLightbox()">&times;</button>
+        <img id="lightbox-img" src="" alt="">
+        <div id="lightbox-caption"></div>
+    </div>
 
     <script src="js/main.js"></script>
 </body>

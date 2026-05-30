@@ -18,9 +18,21 @@ Thumbs.db
 dist/
 build/
 
-# Environment
+# Environment & credentials — never commit
 .env
 .env.local
+.env.*
+*.env
+credentials
+credentials.json
+*_credentials*
+aws-exports.js
+config.json
+secrets.*
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Large data files — hosted on S3 instead
 data/*.geojson
