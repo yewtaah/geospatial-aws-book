@@ -1,86 +1,117 @@
+<div align="center">
+
+<img src="assets/book-cover.png" alt="Geospatial Data Analytics on AWS" width="220">
+
 # Geospatial Data Analytics on AWS
 
-A website promoting the book "Geospatial Data Analytics on AWS" with interactive playgrounds and code examples.
+**The companion site for the Packt book on cloud-native geospatial engineering.**
 
-## About
+[**Live Site**](https://yewtaah.github.io/geospatial-aws-book/) &nbsp;·&nbsp; [**Buy on Amazon**](https://www.amazon.com/Geospatial-Data-Analytics-AWS-geospatial/dp/1804613827/) &nbsp;·&nbsp; [**Read on O'Reilly**](https://www.oreilly.com/library/view/geospatial-data-analytics/9781804613825/)
 
-This is the official companion website for the Packt book on geospatial data analytics using Amazon Web Services. The site includes:
+</div>
 
-- Book information and purchase links
-- Interactive playgrounds and prototypes
-- Code examples and resources
-- Links to AWS geospatial services
+---
 
-## Getting Started
+## What's in the book
 
-### Prerequisites
-- A web browser
-- Git (for version control)
-- A text editor (VS Code recommended)
+400+ pages covering the full stack of cloud-native geospatial work — from raw data ingestion to production-ready AWS architectures. Real examples, real data, real pipelines.
 
-### Local Development
+- AWS geospatial services and infrastructure patterns
+- Data ingestion pipelines with Lambda, Glue, and S3
+- Cloud-Optimized GeoTIFFs, STAC, and open standards
+- Spatial analysis and machine learning on SageMaker
+- Visualization with QuickSight and open-source tools
 
-1. Clone the repository:
+> *Yes, that's a real Athena query against a stadiums table. Houston Astros made the cut.*
+
+<img src="assets/Athena S3 Query csv stadiums Astros.png" alt="AWS Athena geospatial query — MLB AL West stadiums" width="100%">
+
+---
+
+## The site
+
+The companion site is a static GitHub Pages app with interactive in-browser playgrounds — no AWS account required to explore the concepts.
+
+<img src="assets/GitHub_geospatial-aws-book.png" alt="Companion site screenshot" width="100%">
+
+**Playgrounds:**
+| Playground | Concepts |
+|---|---|
+| Spatial Data Processing | Buffer, dissolve, convex hull, Voronoi — live in-browser |
+| Map Visualization | Layer styling, base maps, interactive controls |
+| Satellite Imagery Analysis | Sentinel-2 band combinations and spectral indices |
+| Pipeline Builder | Drag-and-drop AWS ETL architecture designer |
+
+---
+
+## The authors
+
+Three AWS solutions architects who spent a lot of time together in AWS console sessions, conference rooms, and at least one very good lunch.
+
+<br>
+
+<img src="assets/Author%20Celebration%20Lunch.PNG" alt="Scott and Jeff — book celebration lunch at Fat Cat Cafe" width="480">
+
+*Scott and Jeff celebrating the manuscript at Fat Cat Cafe. Jana was probably on a call.*
+
+<br>
+
+| <img src="assets/scott.jpg" width="80" style="border-radius:50%"> | <img src="assets/janahang.jpg" width="80" style="border-radius:50%"> | <img src="assets/jeff.jpg" width="80" style="border-radius:50%"> |
+|:---:|:---:|:---:|
+| **Scott Bateman** | **Janahan Gnanachandran** | **Jeff DeMuth** |
+| Energy Innovation Leader, EY — formerly Principal SA, AWS | Principal SA, AWS — Analytics, AI/ML & Sustainability | Solutions Architect, AWS — Geospatial Community |
+
+---
+
+## Running locally
+
 ```bash
 git clone https://github.com/yewtaah/geospatial-aws-book.git
 cd geospatial-aws-book
-```
 
-2. Open `index.html` in your browser or use a local web server:
-```bash
-# Using Python 3
+# Python
 python -m http.server 8000
 
-# Using Node.js/http-server
+# or Node
 npx http-server
 ```
 
-3. Visit `http://localhost:8000` in your browser
+Then open `http://localhost:8000`.
 
-## Project Structure
+---
+
+## Repo structure
 
 ```
 geospatial-aws-book/
-├── index.html          # Main landing page
-├── css/
-│   └── style.css      # Main stylesheet
-├── js/
-│   └── main.js        # Client-side JavaScript
-├── assets/            # Images and static files
-├── playgrounds/       # Interactive playground pages
-└── README.md          # This file
+├── index.html              # Landing page
+├── data-samples.html       # Free dataset browser
+├── css/style.css
+├── js/main.js
+├── data/catalog.json       # Dataset catalog
+├── assets/                 # Images
+└── playgrounds/
+    ├── spatial-processing.html
+    ├── map-viz.html
+    ├── satellite-imagery.html
+    └── pipeline-builder.html
 ```
 
-## Pages
-
-- **index.html** - Main landing page with book overview
-- **playgrounds/** - Interactive demo pages:
-  - spatial-processing.html
-  - map-viz.html
-  - satellite-imagery.html
-  - pipeline-builder.html
+---
 
 ## Deployment
 
-This site is deployed on GitHub Pages at:
-```
-https://yewtaah.github.io/geospatial-aws-book/
-```
+Pushes to `main` deploy automatically to GitHub Pages:
+`https://yewtaah.github.io/geospatial-aws-book/`
 
-Any push to the `main` branch will automatically update the live site.
+---
 
-## Contributing
+<div align="center">
 
-Found a bug or have a suggestion? Open an issue or submit a pull request.
+*© 2026 Scott Bateman, Janahan Gnanachandran & Jeff DeMuth — Published by Packt*
 
-## Related Resources
+<img src="assets/ScottBucceeKaty.jpg" alt="Scott at Buc-ee's, Katy TX — the most important gas station in the world" width="300">
 
-- [Code Examples Repository](https://github.com/yewtaah/geospatial-aws-book-code)
-- [AWS Geospatial Services](https://aws.amazon.com/geospatial/)
-- [Book on Packt](https://www.packtpub.com/)
-- [Also available on O'Reilly](https://www.oreilly.com/)
-- [Available on Amazon](https://www.amazon.com/)
+*Mandatory Texas author photo.*
 
-## License
-
-Content and code examples are provided under the MIT License.
+</div>
