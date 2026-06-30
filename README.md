@@ -6,7 +6,7 @@
 
 **The companion site for the Packt book on cloud-native geospatial engineering.**
 
-[**Live Site**](https://yewtaah.github.io/geospatial-aws-book/) &nbsp;·&nbsp; [**Buy on Amazon**](https://www.amazon.com/Geospatial-Data-Analytics-AWS-geospatial/dp/1804613827/) &nbsp;·&nbsp; [**Read on O'Reilly**](https://www.oreilly.com/library/view/geospatial-data-analytics/9781804613825/)
+[**Live Site**](https://book.bateman.link) &nbsp;·&nbsp; [**Buy on Amazon**](https://www.amazon.com/Geospatial-Data-Analytics-AWS-geospatial/dp/1804613827/) &nbsp;·&nbsp; [**Read on O'Reilly**](https://www.oreilly.com/library/view/geospatial-data-analytics/9781804613825/)
 
 </div>
 
