@@ -11,8 +11,8 @@
         .pg-layout {
             display: grid;
             grid-template-columns: 320px 1fr;
-            flex: 1;
-            height: calc(100vh - 56px);
+            flex: 0 0 calc(100vh - 89px);
+            overflow: hidden;
         }
         .pg-controls {
             background: var(--bg-surface);
@@ -950,5 +950,10 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
     renderParams();
     updateCode();
     </script>
+    <footer class="page-footer">
+        <span>&copy; 2026 Bateman &middot; Gnanachandran &middot; DeMuth &mdash; Packt</span>
+        <span id="page-updated"></span>
+    </footer>
+    <script>(function(){var el=document.getElementById('page-updated');if(!el)return;var d=new Date(document.lastModified);if(isNaN(d))return;el.textContent='Updated '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});})();</script>
 </body>
 </html>

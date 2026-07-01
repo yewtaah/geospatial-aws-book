@@ -11,8 +11,7 @@
         .pg-layout {
             display: grid;
             grid-template-columns: 320px 1fr;
-            flex: 1;
-            height: calc(100vh - 56px);
+            flex: 0 0 calc(100vh - 89px);
             overflow: hidden;
         }
 
@@ -366,6 +365,13 @@
                     <span class="op-desc">3,233 polygon features · GeoJSON</span>
                 </span>
             </button>
+            <button class="opt-btn" onclick="selectDataset('stadiums', this)">
+                <span class="op-icon">🏟</span>
+                <span class="op-info">
+                    <span class="op-name">North American Stadiums</span>
+                    <span class="op-desc">151 venues · MLB, NFL, NBA, NHL, MLS · CSV</span>
+                </span>
+            </button>
             <button class="opt-btn" onclick="selectDataset('addresses', this)">
                 <span class="op-icon">📬</span>
                 <span class="op-info">
@@ -432,6 +438,7 @@
                 <div class="legend-row"><div class="legend-swatch" style="background:#164e63"></div><span>10 K – 50 K</span></div>
                 <div class="legend-row"><div class="legend-swatch" style="background:#0c3147"></div><span>&lt; 10 K</span></div>
             </div>
+            <!-- legend content is replaced dynamically in selectDataset() -->
         </div>
 
         <!-- Data viewer panel -->
@@ -468,8 +475,14 @@
     </div><!-- /right-panel -->
 </div><!-- /pg-layout -->
 
+<footer class="page-footer">
+    <span>&copy; 2026 Bateman &middot; Gnanachandran &middot; DeMuth &mdash; Packt</span>
+    <span id="page-updated"></span>
+</footer>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+(function(){var el=document.getElementById('page-updated');if(!el)return;var d=new Date(document.lastModified);if(isNaN(d))return;el.textContent='Updated '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});})();
 // ── Dataset config ────────────────────────────────────────────────────────────
 const DATASETS = {
     counties: {
@@ -482,6 +495,18 @@ const DATASETS = {
         fmt: {
             POPULATION: v => v != null ? Number(v).toLocaleString() : '—',
             SQMI:       v => v != null ? Number(v).toLocaleString(undefined,{maximumFractionDigits:1}) : '—',
+        }
+    },
+    stadiums: {
+        url: 'https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv',
+        dlHref: 'https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv',
+        dlName: 'stadiums.csv',
+        dlMeta: 'CSV · 151 venues · EPSG:4326',
+        features: '151', format: 'CSV', crs: '4326', size: '~8 KB',
+        cols: ['Team','League','Division','Lat','Long'],
+        fmt: {
+            Lat:  v => v != null ? Number(v).toFixed(4) : '—',
+            Long: v => v != null ? Number(v).toFixed(4) : '—',
         }
     },
     addresses: {
@@ -510,6 +535,17 @@ let countiesGJ  = null;
 let countiesLyr = null;
 let fipsMap     = {};   // FIPS → Leaflet layer
 let addrRows    = null;
+let stadiumRows = null;
+let stadiumLyr  = null;
+let stadiumMap  = {};   // Team → Leaflet marker
+
+const LEAGUE_COLOR = {
+    MLB: '#f97316',
+    NFL: '#22c55e',
+    NBA: '#ef4444',
+    NHL: '#818cf8',
+    MLS: '#06b6d4'
+};
 
 // ── Map ───────────────────────────────────────────────────────────────────────
 const map = L.map('map').setView([38, -96], 4);
@@ -667,6 +703,63 @@ async function loadAddresses() {
     }
 }
 
+async function loadStadiums() {
+    if (stadiumRows) {
+        if (stadiumLyr) stadiumLyr.addTo(map);
+        allRows = stadiumRows;
+        filtRows = [...allRows];
+        renderTableHead();
+        renderTable();
+        return;
+    }
+    document.getElementById('map-loading').classList.remove('hidden');
+    document.getElementById('load-text').textContent = 'Loading stadiums…';
+    try {
+        const resp = await fetch(DATASETS.stadiums.url);
+        const text = await resp.text();
+        stadiumRows = parseCSV(text);
+        allRows  = stadiumRows;
+        filtRows = [...allRows];
+
+        stadiumMap = {};
+        const markers = stadiumRows.map(row => {
+            const lat = parseFloat(row.Lat), lon = parseFloat(row.Long);
+            if (isNaN(lat) || isNaN(lon)) return null;
+            const color = LEAGUE_COLOR[row.League] || '#94a3b8';
+            const m = L.circleMarker([lat, lon], {
+                radius: 6, color: '#0d0e1a', weight: 1.5,
+                fillColor: color, fillOpacity: 0.88
+            }).bindPopup(
+                `<div style="font-size:0.82rem;font-weight:700;color:#f0f6fc;margin-bottom:0.3rem">${row.Team}</div>` +
+                `<div style="font-size:0.76rem;color:#8b9cc4">${row.League} · ${row.Division}</div>`
+            );
+            m.on('click', () => {
+                const idx = filtRows.findIndex(r => r.Team === row.Team);
+                if (idx >= 0) {
+                    selRow = idx;
+                    page = Math.floor(idx / PAGE_SIZE);
+                    renderTable();
+                    const tbody = document.getElementById('tbl-body');
+                    const rowEl = tbody.querySelector('tr.row-selected');
+                    if (rowEl) rowEl.scrollIntoView({ block: 'nearest' });
+                }
+            });
+            stadiumMap[row.Team] = m;
+            return m;
+        }).filter(Boolean);
+
+        stadiumLyr = L.layerGroup(markers).addTo(map);
+        map.fitBounds([...markers.map(m => m.getLatLng())].map(ll => [ll.lat, ll.lng]), { padding: [30, 30] });
+        renderTableHead();
+        renderTable();
+    } catch(e) {
+        document.getElementById('load-text').textContent = 'Load failed: ' + e.message;
+        document.getElementById('map-loading').classList.remove('hidden');
+        return;
+    }
+    document.getElementById('map-loading').classList.add('hidden');
+}
+
 // ── Table ─────────────────────────────────────────────────────────────────────
 function colLabel(c) {
     return c.replace(/_/g, ' ');
@@ -714,6 +807,10 @@ function onRowClick(idx) {
         const lyr = fipsMap[row.FIPS];
         map.fitBounds(lyr.getBounds(), {maxZoom: 8, padding: [30, 30]});
         lyr.openPopup();
+    } else if (currentDS === 'stadiums' && row && row.Team && stadiumMap[row.Team]) {
+        const m = stadiumMap[row.Team];
+        map.setView(m.getLatLng(), 12, { animate: true });
+        m.openPopup();
     }
     renderTable();
 }
@@ -760,6 +857,13 @@ function renderRawCode() {
         const raw = JSON.stringify(sample, null, 2);
         const suffix = `\n\n// … ${countiesGJ.features.length.toLocaleString()} total features (showing first 3)`;
         el.textContent = raw + suffix;
+    } else if (currentDS === 'stadiums' && stadiumRows) {
+        const headers = Object.keys(stadiumRows[0]);
+        const csvRows = stadiumRows.slice(0, 10).map(r =>
+            headers.map(h => `"${(r[h] || '').replace(/"/g,'""')}"`).join(',')
+        );
+        const suffix = `\n\n// … ${stadiumRows.length} total records (showing first 10)`;
+        el.textContent = [headers.join(','), ...csvRows].join('\n') + suffix;
     } else if (currentDS === 'addresses' && addrRows) {
         const headers = Object.keys(addrRows[0]);
         const csvRows = addrRows.slice(0, 10).map(r =>
@@ -809,6 +913,23 @@ joined = gpd.sjoin(
 )
 
 dense.to_file(<span class="str">"/tmp/output.geojson"</span>)`,
+
+stadiums: `<span class="cm">-- Amazon Athena — query stadiums on S3</span>
+<span class="cm">-- (CSV registered as external table in Glue)</span>
+
+<span class="kw">SELECT</span> *
+<span class="kw">FROM</span>   <span class="str">"geospatial"."stadiums"</span>
+<span class="kw">WHERE</span>  league = <span class="str">'MLB'</span>
+  <span class="kw">AND</span>  division = <span class="str">'AL West'</span>;
+
+<span class="cm">-- Spatial query with WKT geometry</span>
+<span class="kw">SELECT</span>  team,
+        ST_Point(long, lat) <span class="kw">AS</span> geom
+<span class="kw">FROM</span>   <span class="str">"geospatial"."stadiums"</span>
+<span class="kw">WHERE</span>  ST_Contains(
+           ST_GeomFromText(<span class="str">'POLYGON(...)'</span>),
+           ST_Point(long, lat)
+       );`,
 
 addresses: `<span class="cm"># AWS Lambda — Geocode with Location Service</span>
 <span class="kw">import</span> pandas <span class="kw">as</span> pd
@@ -867,20 +988,41 @@ function selectDataset(key, btn) {
     document.getElementById('si-crs').textContent       = ds.crs;
     document.getElementById('si-size').textContent      = ds.size;
     document.getElementById('aws-code').innerHTML       = AWS_CODE[key];
-    document.getElementById('panel-title').textContent  = key === 'counties' ? 'County Features' : 'Address Records';
+    document.getElementById('panel-title').textContent  =
+        key === 'counties' ? 'County Features' :
+        key === 'stadiums' ? 'Stadium Records' : 'Address Records';
 
     const rp = document.getElementById('right-panel');
     const legend = document.getElementById('map-legend');
 
+    if (countiesLyr) map.removeLayer(countiesLyr);
+    if (stadiumLyr)  map.removeLayer(stadiumLyr);
+
     if (key === 'counties') {
         rp.classList.remove('addr-mode');
         legend.style.display = '';
+        legend.innerHTML = `<div class="legend-title">Population</div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0ea5e9"></div><span>&gt; 1 M</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0891b2"></div><span>500 K – 1 M</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0e7490"></div><span>100 K – 500 K</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#155e75"></div><span>50 K – 100 K</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#164e63"></div><span>10 K – 50 K</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0c3147"></div><span>&lt; 10 K</span></div>`;
         loadCounties();
+    } else if (key === 'stadiums') {
+        rp.classList.remove('addr-mode');
+        legend.style.display = '';
+        legend.innerHTML = `<div class="legend-title">League</div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#f97316"></div><span>MLB</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#22c55e"></div><span>NFL</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#ef4444"></div><span>NBA</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#818cf8"></div><span>NHL</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#06b6d4"></div><span>MLS</span></div>`;
+        loadStadiums();
     } else {
         rp.classList.add('addr-mode');
         legend.style.display = 'none';
         document.getElementById('map-loading').classList.add('hidden');
-        if (countiesLyr) map.removeLayer(countiesLyr);
         loadAddresses();
     }
 }

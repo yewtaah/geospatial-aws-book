@@ -32,6 +32,16 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeLightbox();
 });
 
+// Page last-updated timestamp
+(function () {
+    const el = document.getElementById('page-updated');
+    if (!el) return;
+    const d = new Date(document.lastModified);
+    if (isNaN(d)) return;
+    el.textContent = 'Updated ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+})();
+
 // Navbar scroll shadow
 const navbar = document.querySelector('.navbar');
 window.addEventListener('scroll', function () {

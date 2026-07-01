@@ -1,6 +1,22 @@
 {
   "datasets": [
     {
+      "id": "stadiums",
+      "title": "MLB Stadiums",
+      "description": "Point dataset of 151 North American sports venues (MLB, NFL, NBA, NHL, MLS) with team, league, division, and coordinates. Used in Chapter 3 to demonstrate querying CSV files on S3 with Amazon Athena.",
+      "format": "CSV",
+      "type": "tabular",
+      "size": "4 KB",
+      "crs": "EPSG:4326",
+      "features": 151,
+      "source": "MLB, NFL, NBA, NHL, MLS / Manually compiled",
+      "chapter": "Chapter 3",
+      "url": "https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv",
+      "latField": "Lat",
+      "lonField": "Long",
+      "bbox": [-125, 25, -70, 50]
+    },
+    {
       "id": "us-counties",
       "title": "US County Boundaries",
       "description": "Simplified US county boundary polygons. Useful for choropleth maps, spatial joins, and administrative aggregation examples from Chapter 4.",

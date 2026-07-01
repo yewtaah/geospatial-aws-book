@@ -10,8 +10,7 @@
         .pg-layout {
             display: grid;
             grid-template-columns: 260px 1fr 280px;
-            flex: 1;
-            height: calc(100vh - 57px);
+            flex: 0 0 calc(100vh - 89px);
             overflow: hidden;
         }
 
@@ -525,5 +524,10 @@
         document.getElementById('canvasHint').style.display = 'none';
     }
     </script>
+    <footer class="page-footer">
+        <span>&copy; 2026 Bateman &middot; Gnanachandran &middot; DeMuth &mdash; Packt</span>
+        <span id="page-updated"></span>
+    </footer>
+    <script>(function(){var el=document.getElementById('page-updated');if(!el)return;var d=new Date(document.lastModified);if(isNaN(d))return;el.textContent='Updated '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});})();</script>
 </body>
 </html>
