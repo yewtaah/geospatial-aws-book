@@ -93,7 +93,22 @@
             color: var(--text-muted);
             margin-top: 0.3rem;
         }
+        .map-wrap { position: relative; overflow: hidden; height: 100%; }
         #map { height: 100%; }
+        .csv-loading {
+            display: none;
+            position: absolute;
+            top: 12px; right: 12px;
+            z-index: 1000;
+            background: rgba(8,13,26,0.9);
+            border: 1px solid var(--border-mid);
+            border-radius: 3px;
+            padding: 0.45rem 0.85rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+        }
         .leaflet-container { background: #0d1117; }
         .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--border) !important; }
         .leaflet-control-zoom a:hover { color: var(--primary) !important; }
@@ -169,14 +184,21 @@
                     <button class="style-btn active" onclick="loadLayer('states', this)">US States</button>
                     <button class="style-btn" onclick="loadLayer('grid', this)">Grid / Fishnet</button>
                     <button class="style-btn" onclick="loadLayer('points', this)">Random Points</button>
+                    <button class="style-btn" onclick="loadLayer('stadiums', this)">Stadiums · 5 leagues</button>
+                    <button class="style-btn" onclick="loadLayer('texas_wells', this)">Texas Wells (RRC)</button>
+                    <button class="style-btn" onclick="loadLayer('utah_wells', this)">Utah Oil &amp; Gas Wells</button>
                 </div>
             </div>
         </aside>
 
-        <div id="map"></div>
+        <div class="map-wrap">
+            <div id="map"></div>
+            <div id="csv-loading" class="csv-loading">Loading…</div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <script>
     // ── State ─────────────────────────────────────────────────────────────────
     let currentColor = '#0ea5e9';
@@ -243,13 +265,27 @@
         { type: 'Feature', properties: { name: 'Northeast' }, geometry: { type: 'Polygon', coordinates: [[[-79,40],[-67,40],[-67,47],[-79,47],[-79,40]]] } },
     ]};
 
+    // ── CSV dataset config ────────────────────────────────────────────────────
+    const CSV_LAYERS = {
+        stadiums:    { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv',               latF: 'Lat',       lonF: 'Long',      limit: null, popupFields: ['Team','League','Division'],                    bbox: [[25,-125],[55,-65]]       },
+        texas_wells: { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Energy/TexasWells.csv',      latF: 'Latitude',  lonF: 'Longitude', limit: 5000, popupFields: ['WellName','Operator','ZoneStatus','County'],  bbox: [[25.8,-106.7],[36.5,-93.5]] },
+        utah_wells:  { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Energy/UtahOilGasWellsMB.csv', latF: 'Latitude', lonF: 'Longitude', limit: 5000, popupFields: ['WellName','Operator','WellStatus','County'], bbox: [[36.9,-114.1],[42.0,-109.0]] },
+    };
+    const csvCache = {};
+
+    const STATIC_LAYERS = new Set(['states', 'grid', 'points']);
+
     function loadLayer(type, btn) {
         document.querySelectorAll('.pg-controls .style-btn').forEach(b => {
             if (b.getAttribute('onclick') && b.getAttribute('onclick').includes('loadLayer')) b.classList.remove('active');
         });
         if (btn) btn.classList.add('active');
         currentLayerType = type;
-        rebuildLayer();
+        if (STATIC_LAYERS.has(type)) {
+            rebuildLayer();
+        } else {
+            loadCSVLayer(type);
+        }
     }
 
     function rebuildLayer() {
@@ -270,6 +306,54 @@
         }).addTo(map);
     }
 
+    function renderCSVPoints(rows, cfg) {
+        if (currentLayer) { map.removeLayer(currentLayer); currentLayer = null; }
+        const style = getStyle();
+        const markers = [];
+        const limit = cfg.limit ? Math.min(rows.length, cfg.limit) : rows.length;
+        for (let i = 0; i < limit; i++) {
+            const row = rows[i];
+            const lat = parseFloat(row[cfg.latF]), lon = parseFloat(row[cfg.lonF]);
+            if (isNaN(lat) || isNaN(lon)) continue;
+            const popup = cfg.popupFields.filter(f => row[f]).map(f => `<div><b>${f}:</b> ${row[f]}</div>`).join('');
+            markers.push(
+                L.circleMarker([lat, lon], { radius: 4, ...style }).bindPopup(popup || 'No data')
+            );
+        }
+        currentLayer = L.layerGroup(markers).addTo(map);
+        if (cfg.bbox) map.fitBounds(cfg.bbox, { padding: [20, 20] });
+    }
+
+    async function loadCSVLayer(type) {
+        const cfg = CSV_LAYERS[type];
+        const loader = document.getElementById('csv-loading');
+
+        if (csvCache[type]) {
+            renderCSVPoints(csvCache[type], cfg);
+            return;
+        }
+
+        loader.style.display = 'block';
+        loader.textContent = 'Loading…';
+        if (currentLayer) { map.removeLayer(currentLayer); currentLayer = null; }
+
+        Papa.parse(cfg.url, {
+            download: true,
+            header: true,
+            dynamicTyping: false,
+            skipEmptyLines: true,
+            complete(results) {
+                csvCache[type] = results.data;
+                loader.style.display = 'none';
+                if (currentLayerType === type) renderCSVPoints(results.data, cfg);
+            },
+            error() {
+                loader.textContent = 'Load failed';
+                setTimeout(() => { loader.style.display = 'none'; }, 3000);
+            }
+        });
+    }
+
     // ── Controls ──────────────────────────────────────────────────────────────
     function setBaseMap(key, btn) {
         document.querySelectorAll('[data-style]').forEach(b => b.classList.remove('active'));
@@ -279,23 +363,31 @@
         tileLayer = L.tileLayer(t.url, { attribution: t.attr, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     }
 
+    function redraw() {
+        if (STATIC_LAYERS.has(currentLayerType)) {
+            rebuildLayer();
+        } else if (csvCache[currentLayerType]) {
+            renderCSVPoints(csvCache[currentLayerType], CSV_LAYERS[currentLayerType]);
+        }
+    }
+
     function setColor(color, el) {
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         el.classList.add('active');
         currentColor = color;
-        rebuildLayer();
+        redraw();
     }
 
     function setOpacity(val) {
         currentOpacity = parseFloat(val);
         document.getElementById('opacityVal').textContent = val;
-        rebuildLayer();
+        redraw();
     }
 
     function setWeight(val) {
         currentWeight = parseFloat(val);
         document.getElementById('weightVal').textContent = val;
-        rebuildLayer();
+        redraw();
     }
 
     // Initial load
