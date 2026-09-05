@@ -589,7 +589,7 @@
             el.innerHTML = plan.stops.slice(1, -1).map(s => {
                 if (s.type === 'well') return woCardHTML(s.wo);
                 officeVisits++;
-                return officeCardHTML(officeVisits === 1 ? 'Get assignment' : 'Data entry / paperwork');
+                return officeCardHTML(officeVisits === 1 ? 'Team Production Review' : 'Data entry / paperwork');
             }).join('');
         }));
     }
