@@ -43,6 +43,24 @@
         .kpi .kpi-val.ok { color: var(--ok); }
         .kpi .kpi-sub { font-size: .68rem; color: var(--text-dim); margin-top: .15rem; }
         .kpi .kpi-sub .line { display: block; }
+        .kpi-val.clickable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+        .kpi-val.clickable:hover { color: var(--sky); }
+
+        .compliance-panel { background: var(--bg-card); border: 1px solid var(--border-mid); border-radius: 6px;
+            margin: 0 0 1rem; padding: .85rem 1rem 1rem; }
+        .compliance-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; }
+        .compliance-panel-head h3 { margin: 0; font-size: .95rem; color: var(--text); }
+        .compliance-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+        .compliance-table th { text-align: left; color: var(--text-muted); font-weight: 600; font-size: .68rem;
+            text-transform: uppercase; letter-spacing: .03em; padding: .3rem .5rem; border-bottom: 1px solid var(--border-mid); }
+        .compliance-table td { padding: .35rem .5rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+        .compliance-table tr:last-child td { border-bottom: none; }
+        .compliance-table .sev-badge { display: inline-block; padding: .1rem .45rem; border-radius: 3px; font-size: .68rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+        .compliance-table .sev-badge.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad); }
+        .compliance-table .sev-badge.warn { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+        .compliance-table .well-cell { font-family: 'Courier New', monospace; white-space: nowrap; }
+        .compliance-empty { color: var(--text-muted); font-size: .8rem; padding: .5rem; }
 
         .day-tabs { display: flex; gap: .35rem; padding: .75rem 1.75rem; background: var(--bg-surface);
             border-bottom: 1px solid var(--border); overflow-x: auto; }
@@ -244,8 +262,19 @@
         <div class="kpi"><div class="kpi-label">Deferred Production /yr</div><div class="kpi-val" id="kpiProduction">–</div><div class="kpi-sub" id="kpiProductionSub">natural gas left in the ground</div></div>
         <div class="kpi"><div class="kpi-label" id="kpiCostLabel">Total Cost /yr</div><div class="kpi-val" id="kpiCostTotal">–</div><div class="kpi-sub"><span class="line" id="kpiCostFixed">–</span><span class="line" id="kpiCostVariable">–</span><span class="line" id="kpiCostVehicle">–</span></div></div>
         <div class="kpi"><div class="kpi-label">Drive Distance /yr</div><div class="kpi-val" id="kpiMiles">–</div><div class="kpi-sub">all technicians</div></div>
-        <div class="kpi"><div class="kpi-label">Compliance Flags</div><div class="kpi-val" id="kpiFlags">–</div><div class="kpi-sub">heat / policy / RTU / cost</div></div>
+        <div class="kpi"><div class="kpi-label">Compliance Flags</div><div class="kpi-val clickable" id="kpiFlags" onclick="toggleComplianceTable()">–</div><div class="kpi-sub">heat / policy / RTU / cost &mdash; click to view</div></div>
         <div class="kpi kpi-highlight"><div class="kpi-label">Net Value /yr</div><div class="kpi-val" id="kpiNetValue">–</div><div class="kpi-sub">production value protected − total labor</div></div>
+    </div>
+
+    <div class="compliance-panel" id="compliancePanel" hidden>
+        <div class="compliance-panel-head">
+            <h3>Compliance Flag Detail</h3>
+            <button type="button" class="btn btn-small" onclick="toggleComplianceTable()">Close</button>
+        </div>
+        <table class="compliance-table" id="complianceTable">
+            <thead><tr><th>Severity</th><th>Well</th><th>Technician</th><th>Day</th><th>Flag</th></tr></thead>
+            <tbody id="complianceTableBody"></tbody>
+        </table>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -287,6 +316,7 @@
     let currentDay = 0;
     let pendingRoutes = 0;
     let routeGen = {}; // per-cell request counter, so a slow/stale OSRM response can't clobber a newer one
+    let complianceFlagDetails = []; // rebuilt each recomputeKPIs -- {severity,text,well,tech,day} behind the Compliance Flags KPI
 
     // Real road-network duration/distance between every home, the office, and every well -- fetched
     // ONCE (OSRM's Table API, a single request) since none of these 26 points ever move. Ordering
@@ -985,10 +1015,10 @@
             if (fieldFinishClock > HEAT_CUTOFF_HOUR) flags.push({ cls: 'warn', txt: `Fieldwork runs to ~${clockStr(fieldFinishClock)} — August heat risk` });
             if (naturalHours > 9.5) flags.push({ cls: 'bad', txt: `Overloaded day (${naturalHours.toFixed(1)}h) — likely infeasible` });
             if (techCode === 'KRK' && items.some(w => w.MaintTypeID === 'PM' || w.MaintTypeID === 'INS')) flags.push({ cls: 'warn', txt: `Contractor on routine task — costly at $${t.hourly_rate_usd}/hr` });
-            missedWells.forEach(mw => flags.push({ cls: 'bad', txt: `Drove within ${mw.distMi.toFixed(1)} mi of shut-in ${mw.wo.EquipID} (${mw.wo.TargetMcfPerDay} Mcf/d) — no SCADA visibility to know` }));
+            missedWells.forEach(mw => flags.push({ cls: 'bad', well: mw.wo.EquipID, txt: `Drove within ${mw.distMi.toFixed(1)} mi of shut-in ${mw.wo.EquipID} (${mw.wo.TargetMcfPerDay} Mcf/d) — no SCADA visibility to know` }));
             items.forEach(w => {
                 const accessMin = siteAccessMinutes(w);
-                if (accessMin >= 6) flags.push({ cls: 'warn', txt: `${w.EquipID} is ~${Math.round(accessMin)} min off the mapped road — unmapped lease access` });
+                if (accessMin >= 6) flags.push({ cls: 'warn', well: w.EquipID, txt: `${w.EquipID} is ~${Math.round(accessMin)} min off the mapped road — unmapped lease access` });
             });
             // Quantified payoff of dispatching straight to known critical work instead of routing
             // through the office first -- matrix-only counterfactual, no extra network call.
@@ -1371,15 +1401,31 @@
         // with how much work actually gets routed to him. Splitting them is the point -- it's what
         // shows whether shifting work to the contractor is actually cheaper, not just "different."
         let fixedCost = 0, variableCost = 0, vehicleCostTotal = 0, totalMiles = 0, totalFlags = 0;
+        complianceFlagDetails = [];
         Object.entries(routeMeta).forEach(([key, m]) => {
             if (!m || m.error) return;
-            const tc = key.split('_')[0];
+            const [tc, dayIdxStr] = key.split('_');
+            const dayIdx = parseInt(dayIdxStr, 10);
             if (techs[tc].employment_type === 'contractor') variableCost += m.cost || 0;
             else fixedCost += m.cost || 0;
             vehicleCostTotal += m.vehicleCost || 0;
-            totalMiles += m.distanceMi || 0; totalFlags += (m.flags || []).length;
+            totalMiles += m.distanceMi || 0;
+            (m.flags || []).forEach(f => {
+                if (f.cls === 'ok') return; // positive callouts aren't compliance issues -- don't count or list them here
+                totalFlags++;
+                complianceFlagDetails.push({ severity: f.cls, text: f.txt, well: f.well || '—', tech: techs[tc].driver_name, day: DAYS[dayIdx].label });
+            });
         });
-        totalFlags += openRepairs.length; // every unscheduled CM/COM is its own compliance flag
+        openRepairs.forEach(w => {
+            totalFlags++; // every unscheduled CM/COM is its own compliance flag
+            complianceFlagDetails.push({
+                severity: 'bad',
+                text: `${w.MaintName} — unscheduled and safety-critical, not yet dispatched`,
+                well: w.EquipID, tech: 'Unassigned', day: '—',
+            });
+        });
+        const severityRank = { bad: 0, warn: 1 };
+        complianceFlagDetails.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
 
         const deferredMcf = computeDeferredProduction();
 
@@ -1399,7 +1445,8 @@
         document.getElementById('kpiCostVariable').textContent = `$${Math.round(annualVariable).toLocaleString()} Krenek (per hour billed)`;
         document.getElementById('kpiCostVehicle').textContent = `$${Math.round(annualVehicle).toLocaleString()} vehicle (fuel/insurance/wear)`;
         set('kpiMiles', `${Math.round(totalMiles * WEEKS_PER_YEAR).toLocaleString()} mi`, '');
-        set('kpiFlags', totalFlags, totalFlags > 0 ? (openRtuFaults.length > 0 ? 'bad' : 'warn') : 'ok');
+        set('kpiFlags', totalFlags, 'clickable ' + (totalFlags > 0 ? (openRtuFaults.length > 0 ? 'bad' : 'warn') : 'ok'));
+        renderComplianceTable();
 
         // The one number for comparing schedules against each other: production value this
         // schedule actually protects (vs. every down well sitting broken all week) minus what
@@ -1409,6 +1456,30 @@
         const annualNetValue = (recoveredMcf * NATURAL_GAS_PRICE_PER_MCF * WEEKS_PER_YEAR) - (annualFixed + annualVariable + annualVehicle);
         const sign = annualNetValue < 0 ? '-' : '';
         set('kpiNetValue', `${sign}$${Math.round(Math.abs(annualNetValue)).toLocaleString()}`, annualNetValue >= 0 ? 'ok' : 'bad');
+    }
+
+    function renderComplianceTable() {
+        const body = document.getElementById('complianceTableBody');
+        if (!body) return;
+        if (!complianceFlagDetails.length) {
+            body.innerHTML = '<tr><td colspan="5" class="compliance-empty">No compliance flags on the current schedule.</td></tr>';
+            return;
+        }
+        body.innerHTML = complianceFlagDetails.map(f => `
+            <tr>
+                <td><span class="sev-badge ${f.severity}">${f.severity === 'bad' ? 'Critical' : 'Warning'}</span></td>
+                <td class="well-cell">${f.well}</td>
+                <td>${f.tech}</td>
+                <td>${f.day}</td>
+                <td>${f.text}</td>
+            </tr>`).join('');
+    }
+
+    function toggleComplianceTable() {
+        const panel = document.getElementById('compliancePanel');
+        if (!panel) return;
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     </script>
     <footer class="page-footer">
