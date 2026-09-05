@@ -41,6 +41,7 @@ The companion site is a static GitHub Pages app with interactive in-browser play
 | Map Visualization | Layer styling, base maps, interactive controls |
 | Satellite Imagery Analysis | Sentinel-2 band combinations and spectral indices |
 | Pipeline Builder | Drag-and-drop AWS ETL architecture designer |
+| Field Operator Efficiency | Live OSRM-routed maintenance scheduling across technicians and days |
 
 ---
 

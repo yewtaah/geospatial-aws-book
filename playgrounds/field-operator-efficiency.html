@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Operator Efficiency Playground – Geospatial Data Analytics on AWS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        :root {
+            /* Technician accent colors are defined once in JS (techColorHex) and applied inline,
+               since Leaflet's divIcon HTML can't read CSS custom properties. */
+            --ok:    #22c55e;
+            --warn:  #f59e0b;
+            --bad:   #ef4444;
+        }
+        body { display: flex; flex-direction: column; min-height: 100vh; }
+
+        .pg-intro {
+            padding: 1.4rem 1.75rem 1.1rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+            display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap;
+        }
+        .pg-intro h1 { font-size: 1.15rem; font-weight: 700; color: var(--text); margin-bottom: .3rem; }
+        .pg-intro p { font-size: .84rem; color: var(--text-muted); max-width: 62ch; line-height: 1.55; }
+        .pg-toggle { display: flex; align-items: center; gap: .5rem; font-size: .78rem; color: var(--text-muted);
+            border: 1px solid var(--border-mid); border-radius: 4px; padding: .55rem .8rem; background: var(--bg-elevated); white-space: nowrap; }
+        .pg-toggle input { accent-color: var(--sky); width: 15px; height: 15px; }
+        .pg-toggle strong { color: var(--text); font-weight: 600; }
+
+        .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--border);
+            border-bottom: 1px solid var(--border); }
+        .kpi { background: var(--bg-card); padding: .85rem 1.1rem; }
+        .kpi .kpi-label { font-family: 'Courier New', monospace; font-size: .65rem; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: .3rem; }
+        .kpi .kpi-val { font-size: 1.35rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+        .kpi .kpi-val.warn { color: var(--warn); }
+        .kpi .kpi-val.bad { color: var(--bad); }
+        .kpi .kpi-val.ok { color: var(--ok); }
+        .kpi .kpi-sub { font-size: .7rem; color: var(--text-dim); margin-top: .15rem; }
+
+        .day-tabs { display: flex; gap: .35rem; padding: .75rem 1.75rem; background: var(--bg-surface);
+            border-bottom: 1px solid var(--border); overflow-x: auto; }
+        .day-tab { font-family: 'Courier New', monospace; font-size: .74rem; padding: .4rem .85rem; border-radius: 3px;
+            border: 1px solid var(--border-mid); background: var(--bg-elevated); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+        .day-tab:hover { border-color: var(--sky); color: var(--text); }
+        .day-tab.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.12); }
+
+        #map { height: 46vh; min-height: 320px; }
+        .leaflet-container { background: #0d1117; }
+        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        .leaflet-control-attribution { background: rgba(13,14,26,0.85) !important; color: var(--text-muted) !important; }
+        .leaflet-control-attribution a { color: var(--text-muted) !important; }
+        .leaflet-popup-content-wrapper { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+        .leaflet-popup-tip { background: var(--bg-elevated); }
+        .map-legend { position: absolute; z-index: 900; margin: 10px; padding: .6rem .8rem; background: rgba(8,13,26,0.9);
+            border: 1px solid var(--border-mid); border-radius: 4px; font-size: .7rem; color: var(--text-muted);
+            display: flex; flex-direction: column; gap: .3rem; }
+        .map-legend .row { display: flex; align-items: center; gap: .45rem; }
+        .map-legend .sw { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+
+        .board-wrap { flex: 1; padding: 1.1rem 1.75rem 2rem; }
+        .board-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .6rem; }
+        .board-head h2 { font-size: .92rem; font-weight: 700; color: var(--text); }
+        .board-head span { font-size: .72rem; color: var(--text-dim); font-family: 'Courier New', monospace; }
+
+        .backlog { display: flex; gap: .5rem; flex-wrap: wrap; padding: .85rem; background: var(--bg-card);
+            border: 1px dashed var(--border-mid); border-radius: 5px; margin-bottom: 1rem; min-height: 52px; }
+        .backlog.dragover { border-color: var(--sky); background: rgba(14,165,233,.06); }
+        .backlog-empty { font-size: .76rem; color: var(--text-dim); align-self: center; }
+
+        .board-grid { display: grid; grid-template-columns: 110px repeat(6, 1fr); gap: 1px; background: var(--border);
+            border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+        .board-grid > div { background: var(--bg-card); }
+        .row-head, .col-head { background: var(--bg-elevated) !important; padding: .55rem .6rem; font-size: .74rem; }
+        .col-head { text-align: center; font-family: 'Courier New', monospace; color: var(--text-muted); }
+        .col-head b { display: block; color: var(--text); font-size: .78rem; }
+        .row-head { display: flex; flex-direction: column; justify-content: center; gap: .1rem; }
+        .row-head .tname { font-weight: 700; font-size: .82rem; }
+        .row-head .trole { font-size: .65rem; color: var(--text-muted); }
+        .row-head .rate { font-size: .64rem; color: var(--text-dim); font-family: 'Courier New', monospace; }
+
+        .wo-cell { padding: .4rem; min-height: 92px; display: flex; flex-direction: column; gap: .3rem; }
+        .wo-cell.dragover { background: rgba(14,165,233,.08); outline: 1px dashed var(--sky); outline-offset: -3px; }
+        .wo-cards { display: flex; flex-direction: column; gap: .28rem; }
+        .wo-card { font-size: .68rem; padding: .3rem .45rem; border-radius: 3px; cursor: grab; line-height: 1.3;
+            border-left: 3px solid var(--text-dim); background: var(--bg-elevated); color: var(--text); }
+        .wo-card.pm { border-left-color: var(--sky); }
+        .wo-card.cm { border-left-color: var(--bad); background: rgba(239,68,68,.08); }
+        .wo-card b { display: block; font-family: 'Courier New', monospace; font-size: .68rem; }
+        .wo-card .sub { color: var(--text-muted); font-size: .62rem; }
+        .wo-card:active { cursor: grabbing; }
+
+        .cell-stats { margin-top: auto; font-size: .62rem; color: var(--text-dim); font-family: 'Courier New', monospace;
+            line-height: 1.5; border-top: 1px solid var(--border); padding-top: .28rem; }
+        .cell-stats .flag { display: block; color: var(--warn); }
+        .cell-stats .flag.bad { color: var(--bad); }
+        .cell-stats .flag.ok { color: var(--ok); }
+
+        @media (max-width: 900px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .board-grid { grid-template-columns: 90px repeat(6, minmax(120px,1fr)); overflow-x: auto; }
+            .board-wrap { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><a href="../" style="color:inherit;text-decoration:none;">← Geospatial<span style="color:var(--primary)">AWS</span></a></div>
+            <div style="color:var(--text-muted);font-size:0.85rem;font-weight:500;">Field Operator Efficiency</div>
+        </div>
+    </nav>
+
+    <div class="pg-intro">
+        <div>
+            <h1>Field Operator Efficiency</h1>
+            <p>Drag work orders between technicians and days to plan the KGFCU maintenance backlog. Routes are computed live against OpenStreetMap's road network (OSRM) as you rearrange the schedule — watch cost, drive time, and compliance move with each change.</p>
+        </div>
+        <label class="pg-toggle">
+            <input type="checkbox" id="enforcePolicy" checked onchange="onPolicyToggle()">
+            <span><strong>Enforce 8-hr office policy</strong> for employees</span>
+        </label>
+    </div>
+
+    <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Wells Scheduled</div><div class="kpi-val" id="kpiScheduled">–</div><div class="kpi-sub">of 22 KGFCU wellheads</div></div>
+        <div class="kpi"><div class="kpi-label">Critical Backlog</div><div class="kpi-val" id="kpiCritical">–</div><div class="kpi-sub">unscheduled CM repairs</div></div>
+        <div class="kpi"><div class="kpi-label">Weekly Labor Cost</div><div class="kpi-val" id="kpiCost">–</div><div class="kpi-sub" id="kpiCostSub">employee + contractor</div></div>
+        <div class="kpi"><div class="kpi-label">Drive Distance</div><div class="kpi-val" id="kpiMiles">–</div><div class="kpi-sub">total, all technicians</div></div>
+        <div class="kpi"><div class="kpi-label">Compliance Flags</div><div class="kpi-val" id="kpiFlags">–</div><div class="kpi-sub">heat / policy / cost warnings</div></div>
+    </div>
+
+    <div class="day-tabs" id="dayTabs"></div>
+
+    <div style="position:relative;">
+        <div id="map"></div>
+        <div class="map-legend" id="mapLegend"></div>
+    </div>
+
+    <div class="board-wrap">
+        <div class="board-head">
+            <h2>Unassigned Backlog</h2>
+            <span>Drag a card onto a technician / day cell to schedule it</span>
+        </div>
+        <div class="backlog" id="backlog"></div>
+
+        <div class="board-head">
+            <h2>Weekly Schedule — Aug 3–8, 2026</h2>
+            <span id="boardSub">PM = routine check · INS = inspection · CM = corrective repair (safety-critical)</span>
+        </div>
+        <div class="board-grid" id="boardGrid"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+    <script>
+    // ── Constants ────────────────────────────────────────────────────────────
+    const OFFICE = { lat: 29.864996, lon: -95.790395, name: 'Hilcorp Field Office', sub: 'Porter Rd, Harris Co.' };
+    const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
+    const DAYS = [
+        { key: 0, label: 'Mon', date: 'Aug 3' }, { key: 1, label: 'Tue', date: 'Aug 4' },
+        { key: 2, label: 'Wed', date: 'Aug 5' }, { key: 3, label: 'Thu', date: 'Aug 6' },
+        { key: 4, label: 'Fri', date: 'Aug 7' }, { key: 5, label: 'Sat', date: 'Aug 8' },
+    ];
+    const HEAT_CUTOFF_HOUR = 13.5; // 1:30 PM local -- fieldwork finishing after this in August heat gets flagged
+
+    // Default seed schedule: EquipID -> [techCode, dayIdx]
+    const SEED = {
+        'WH-4401':['ALV',0], 'WH-0009':['ALV',0], 'WH-4502':['ALV',0],
+        'WH-3310':['RUZ',0], 'WH-3207':['RUZ',0],
+        'WH-4301':['ALV',1], 'WH-4305':['ALV',1], 'WH-3201':['RUZ',1], 'WH-3203':['RUZ',1],
+        'WH-3505':['KRK',1],
+        'WH-3202':['ALV',2], 'WH-2401':['RUZ',2], 'WH-3401':['RUZ',2],
+        'WH-3406':['ALV',3], 'WH-2308':['ALV',3], 'WH-2205':['RUZ',3],
+        'WH-3308':['KRK',3],
+        'WH-2202':['ALV',4], 'WH-2201':['ALV',4], 'WH-2306':['RUZ',4],
+        'WH-4404D':['KRK',5], 'WH-4405':['KRK',5],
+    };
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let techs = {};        // tech_code -> row
+    let workOrders = [];   // array of {..csv fields.., assignedTech, assignedDay}
+    let map, dayLayerGroups = {}, wellMarkers = {}, routeMeta = {}; // routeMeta[tech_day] = {driveHours,distanceMi,error}
+    let currentDay = 0;
+    let pendingRoutes = 0;
+    let routeGen = {}; // per-cell request counter, so a slow/stale OSRM response can't clobber a newer one
+
+    function techColorHex(code) { return { ALV: '#0ea5e9', RUZ: '#c2669d', KRK: '#8b7fd6' }[code] || '#888'; }
+
+    // ── Load data ────────────────────────────────────────────────────────────
+    Promise.all([
+        new Promise(res => Papa.parse('../data/GPS/technician_roster.csv', { download: true, header: true, skipEmptyLines: true, complete: r => res(r.data) })),
+        new Promise(res => Papa.parse('../data/GPS/work_orders.csv', { download: true, header: true, skipEmptyLines: true, complete: r => res(r.data) })),
+    ]).then(([roster, orders]) => {
+        roster.forEach(t => {
+            t.home_lat = parseFloat(t.home_lat); t.home_lon = parseFloat(t.home_lon);
+            t.uses_office = t.uses_office === 'TRUE';
+            t.returns_to_office_default = t.returns_to_office_default === 'TRUE';
+            t.hourly_rate_usd = parseFloat(t.hourly_rate_usd);
+            t.pm_minutes_avg = parseFloat(t.pm_minutes_avg);
+            t.cm_minutes_avg = parseFloat(t.cm_minutes_avg);
+            t.start_hour_local = parseFloat(t.start_hour_local) + parseFloat(t.start_min_local) / 60;
+            techs[t.tech_code] = t;
+        });
+        workOrders = orders.map(w => {
+            w.Latitude = parseFloat(w.Latitude); w.Longitude = parseFloat(w.Longitude);
+            w.SafetyCritical = w.SafetyCritical === 'TRUE';
+            const seed = SEED[w.EquipID];
+            w.assignedTech = seed ? seed[0] : null;
+            w.assignedDay = seed ? seed[1] : null;
+            return w;
+        });
+        init();
+    });
+
+    function init() {
+        initMap();
+        renderDayTabs();
+        renderLegend();
+        renderBoard();
+        recomputeAll();
+    }
+
+    // ── Map ──────────────────────────────────────────────────────────────────
+    function initMap() {
+        map = L.map('map', { scrollWheelZoom: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 18
+        }).addTo(map);
+
+        DAYS.forEach(d => { dayLayerGroups[d.key] = L.layerGroup(); });
+        dayLayerGroups[0].addTo(map);
+
+        // Home + office markers (static)
+        const pin = (color) => L.divIcon({
+            className: '', html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #0d1117;box-shadow:0 1px 4px rgba(0,0,0,.5);"></div>`,
+            iconSize: [14, 14], iconAnchor: [7, 7]
+        });
+        Object.values(techs).forEach(t => {
+            L.marker([t.home_lat, t.home_lon], { icon: pin(techColorHex(t.tech_code)) })
+                .bindPopup(`<b>${t.driver_name}</b> — ${t.role_archetype}<br><span style="color:#9aa1b8">${t.home_area}</span>`)
+                .addTo(map);
+        });
+        L.marker([OFFICE.lat, OFFICE.lon], { icon: pin('#d4a017') })
+            .bindPopup(`<b>${OFFICE.name}</b><br><span style="color:#9aa1b8">${OFFICE.sub}</span>`).addTo(map);
+
+        const allPts = [[OFFICE.lat, OFFICE.lon], ...Object.values(techs).map(t => [t.home_lat, t.home_lon])];
+        map.fitBounds(allPts, { padding: [40, 40] });
+    }
+
+    function wellIcon(status) {
+        const fill = status === 'critical' ? '#ef4444' : status === 'scheduled' ? '#22c55e' : '#6b7280';
+        return L.divIcon({
+            className: '', html: `<div style="width:9px;height:9px;border-radius:50%;background:${fill};border:1.5px solid #0d1117;"></div>`,
+            iconSize: [9, 9], iconAnchor: [4, 4]
+        });
+    }
+
+    function refreshWellMarkers() {
+        workOrders.forEach(w => {
+            const status = w.assignedTech ? 'scheduled' : (w.MaintTypeID === 'CM' ? 'critical' : 'backlog');
+            if (!wellMarkers[w.WorkOrderID]) {
+                wellMarkers[w.WorkOrderID] = L.marker([w.Latitude, w.Longitude], { icon: wellIcon(status) }).addTo(map);
+            } else {
+                wellMarkers[w.WorkOrderID].setIcon(wellIcon(status));
+            }
+            const techName = w.assignedTech ? techs[w.assignedTech].driver_name : 'Unassigned';
+            wellMarkers[w.WorkOrderID].bindPopup(
+                `<b>${w.WorkOrderID}</b> · ${w.EquipID}<br>${w.MaintName}<br><span style="color:#9aa1b8">${techName}${w.assignedDay !== null ? ' · ' + DAYS[w.assignedDay].label : ''}</span>`
+            );
+        });
+    }
+
+    function renderLegend() {
+        document.getElementById('mapLegend').innerHTML = `
+            <div class="row"><span class="sw" style="background:#0ea5e9"></span>Alvey home</div>
+            <div class="row"><span class="sw" style="background:#c2669d"></span>Ruiz home</div>
+            <div class="row"><span class="sw" style="background:#8b7fd6"></span>Krenek yard</div>
+            <div class="row"><span class="sw" style="background:#d4a017"></span>Field office</div>
+            <div class="row"><span class="sw" style="background:#22c55e"></span>Scheduled well</div>
+            <div class="row"><span class="sw" style="background:#ef4444"></span>Critical / unscheduled</div>
+            <div class="row"><span class="sw" style="background:#6b7280"></span>Routine backlog</div>`;
+    }
+
+    function renderDayTabs() {
+        const el = document.getElementById('dayTabs');
+        el.innerHTML = DAYS.map(d => `<div class="day-tab${d.key === currentDay ? ' active' : ''}" data-day="${d.key}" onclick="setMapDay(${d.key})">${d.label} <span style="opacity:.6">${d.date}</span></div>`).join('');
+    }
+
+    function setMapDay(dayIdx) {
+        map.removeLayer(dayLayerGroups[currentDay]);
+        currentDay = dayIdx;
+        dayLayerGroups[currentDay].addTo(map);
+        document.querySelectorAll('.day-tab').forEach(t => t.classList.toggle('active', +t.dataset.day === dayIdx));
+    }
+
+    // ── Board ────────────────────────────────────────────────────────────────
+    function woCardHTML(w) {
+        const cls = w.MaintTypeID === 'CM' ? 'cm' : 'pm';
+        return `<div class="wo-card ${cls}" draggable="true" data-id="${w.WorkOrderID}" ondragstart="onDragStart(event)">
+            <b>${w.EquipID} · ${w.MaintTypeID}</b><span class="sub">${w.MaintName}</span></div>`;
+    }
+
+    function renderBoard() {
+        const backlog = document.getElementById('backlog');
+        const unassigned = workOrders.filter(w => !w.assignedTech);
+        backlog.innerHTML = unassigned.length
+            ? unassigned.map(woCardHTML).join('')
+            : '<div class="backlog-empty">All work orders scheduled.</div>';
+        backlog.ondragover = e => { e.preventDefault(); backlog.classList.add('dragover'); };
+        backlog.ondragleave = () => backlog.classList.remove('dragover');
+        backlog.ondrop = e => onDrop(e, null, null);
+
+        const grid = document.getElementById('boardGrid');
+        let html = `<div class="row-head"></div>` + DAYS.map(d => `<div class="col-head"><b>${d.label}</b>${d.date}</div>`).join('');
+        Object.values(techs).forEach(t => {
+            html += `<div class="row-head"><span class="tname" style="color:${techColorHex(t.tech_code)}">${t.driver_name}</span><span class="trole">${t.role_archetype}</span><span class="rate">$${t.hourly_rate_usd}/hr</span></div>`;
+            DAYS.forEach(d => {
+                html += `<div class="wo-cell" data-tech="${t.tech_code}" data-day="${d.key}"
+                    ondragover="event.preventDefault();this.classList.add('dragover')"
+                    ondragleave="this.classList.remove('dragover')"
+                    ondrop="onDrop(event,'${t.tech_code}',${d.key})">
+                    <div class="wo-cards" id="cards_${t.tech_code}_${d.key}"></div>
+                    <div class="cell-stats" id="stats_${t.tech_code}_${d.key}">—</div>
+                    </div>`;
+            });
+        });
+        grid.innerHTML = html;
+        refreshCellCards();
+    }
+
+    function refreshCellCards() {
+        Object.values(techs).forEach(t => DAYS.forEach(d => {
+            const el = document.getElementById(`cards_${t.tech_code}_${d.key}`);
+            const items = workOrders.filter(w => w.assignedTech === t.tech_code && w.assignedDay === d.key);
+            el.innerHTML = items.map(woCardHTML).join('');
+        }));
+    }
+
+    // ── Drag & drop ──────────────────────────────────────────────────────────
+    let dragId = null;
+    function onDragStart(e) { dragId = e.target.closest('.wo-card').dataset.id; e.dataTransfer.setData('text/plain', dragId); }
+
+    function onDrop(e, techCode, dayIdx) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('dragover');
+        const id = e.dataTransfer.getData('text/plain') || dragId;
+        const wo = workOrders.find(w => w.WorkOrderID === id);
+        if (!wo) return;
+        const prevTech = wo.assignedTech, prevDay = wo.assignedDay;
+        if (prevTech === techCode && prevDay === dayIdx) return; // dropped back where it started
+        wo.assignedTech = techCode; wo.assignedDay = dayIdx; wo.StatusID = techCode ? 'ASG' : 'NEW';
+        renderBoard();
+        refreshWellMarkers();
+        if (prevTech !== null) computeCellRoute(prevTech, prevDay);
+        if (techCode !== null) computeCellRoute(techCode, dayIdx);
+        recomputeKPIs();
+    }
+
+    // ── Routing + cost model ─────────────────────────────────────────────────
+    function haversineMi(a, b) {
+        const R = 3958.8, toRad = d => d * Math.PI / 180;
+        const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
+        const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;
+        return 2 * R * Math.asin(Math.sqrt(s));
+    }
+    function nearestNeighborOrder(start, pts) {
+        const remaining = pts.slice(); const order = []; let cur = start;
+        while (remaining.length) {
+            remaining.sort((a, b) => haversineMi(cur, a) - haversineMi(cur, b));
+            const next = remaining.shift(); order.push(next); cur = next;
+        }
+        return order;
+    }
+
+    async function computeCellRoute(techCode, dayIdx) {
+        const key = `${techCode}_${dayIdx}`;
+        const myGen = (routeGen[key] = (routeGen[key] || 0) + 1); // this call owns `key` until a newer one starts
+        const layerGroup = dayLayerGroups[dayIdx];
+        if (routeMeta[key] && routeMeta[key].layer) { layerGroup.removeLayer(routeMeta[key].layer); }
+        const t = techs[techCode];
+        const items = workOrders.filter(w => w.assignedTech === techCode && w.assignedDay === dayIdx);
+        const statsEl = document.getElementById(`stats_${key}`);
+
+        if (!items.length) { delete routeMeta[key]; if (statsEl) statsEl.innerHTML = '—'; recomputeKPIs(); return; }
+
+        const home = { lat: t.home_lat, lon: t.home_lon };
+        const wellPts = items.map(w => ({ lat: w.Latitude, lon: w.Longitude, wo: w }));
+        const anchor = t.uses_office ? OFFICE : home;
+        const ordered = nearestNeighborOrder(anchor, wellPts);
+
+        const waypoints = t.uses_office
+            ? [home, OFFICE, ...ordered, ...(document.getElementById('enforcePolicy').checked ? [OFFICE] : []), home]
+            : [home, ...ordered, home];
+
+        const effortMin = items.reduce((s, w) => s + (w.MaintTypeID === 'CM' ? t.cm_minutes_avg : t.pm_minutes_avg), 0);
+
+        if (statsEl) statsEl.innerHTML = '<span style="opacity:.6">routing…</span>';
+        pendingRoutes++; updatePendingIndicator();
+
+        try {
+            const coordStr = waypoints.map(p => `${p.lon},${p.lat}`).join(';');
+            const res = await fetch(`${OSRM}${coordStr}?overview=full&geometries=geojson&steps=false`);
+            const json = await res.json();
+            if (json.code !== 'Ok') throw new Error('routing failed');
+            if (routeGen[key] !== myGen) return; // a newer drag re-requested this cell while we were in flight -- discard
+
+            const route = json.routes[0];
+            const latlngs = route.geometry.coordinates.map(c => [c[1], c[0]]);
+            const layer = L.polyline(latlngs, { color: techColorHex(techCode), weight: 4, opacity: .85 }).addTo(layerGroup);
+
+            const driveHours = route.duration / 3600;
+            const effortHours = effortMin / 60;
+            const naturalHours = driveHours + effortHours;
+            const policyOn = document.getElementById('enforcePolicy').checked;
+            const billableHours = t.uses_office && policyOn ? Math.max(8, naturalHours) : naturalHours;
+
+            // The route's last 1 (contractor/no-policy) or 2 (employee + office policy) legs are
+            // the trip *home* -- not fieldwork. Real per-leg OSRM durations, not an estimate, so
+            // the "back at the truck" clock below reflects the actual routed drive time.
+            const numTailLegs = (t.uses_office && policyOn) ? 2 : 1;
+            const tailHours = route.legs.slice(-numTailLegs).reduce((s, l) => s + l.duration, 0) / 3600;
+            const fieldHours = (driveHours - tailHours) + effortHours;
+            const fieldFinishClock = t.start_hour_local + fieldHours;
+
+            const flags = [];
+            if (t.uses_office && !policyOn && naturalHours < 8) flags.push({ cls: 'warn', txt: `Under 8-hr shift (${naturalHours.toFixed(1)}h) — policy non-compliant` });
+            if (fieldFinishClock > HEAT_CUTOFF_HOUR) flags.push({ cls: 'warn', txt: `Fieldwork runs to ~${clockStr(fieldFinishClock)} — August heat risk` });
+            if (naturalHours > 9.5) flags.push({ cls: 'bad', txt: `Overloaded day (${naturalHours.toFixed(1)}h) — likely infeasible` });
+            if (techCode === 'KRK' && items.some(w => w.MaintTypeID !== 'CM')) flags.push({ cls: 'warn', txt: `Contractor on routine task — costly at $${t.hourly_rate_usd}/hr` });
+
+            routeMeta[key] = { layer, driveHours, distanceMi: route.distance / 1609.34, effortHours, naturalHours, billableHours, cost: billableHours * t.hourly_rate_usd, flags, wellCount: items.length };
+
+            if (statsEl) statsEl.innerHTML = renderCellStats(routeMeta[key]);
+        } catch (err) {
+            if (routeGen[key] !== myGen) return; // stale request -- a newer one already owns this cell
+            routeMeta[key] = { error: true };
+            if (statsEl) statsEl.innerHTML = '<span class="flag bad">route unavailable</span>';
+        } finally {
+            pendingRoutes--; updatePendingIndicator();
+            recomputeKPIs();
+        }
+    }
+
+    function clockStr(hDec) {
+        let h = Math.floor(hDec) % 24, m = Math.round((hDec - Math.floor(hDec)) * 60);
+        if (m === 60) { m = 0; h++; }
+        const ap = h >= 12 ? 'PM' : 'AM'; let h12 = h % 12; if (h12 === 0) h12 = 12;
+        return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
+    }
+
+    function renderCellStats(m) {
+        if (!m) return '—';
+        let html = `${m.wellCount} well${m.wellCount === 1 ? '' : 's'} · ${m.distanceMi.toFixed(1)} mi · ${m.naturalHours.toFixed(1)}h field`;
+        html += `<br>$${Math.round(m.cost).toLocaleString()} billed (${m.billableHours.toFixed(1)}h)`;
+        m.flags.forEach(f => { html += `<span class="flag ${f.cls}">⚠ ${f.txt}</span>`; });
+        return html;
+    }
+
+    function updatePendingIndicator() {
+        document.getElementById('kpiCostSub').textContent = pendingRoutes > 0 ? `routing… (${pendingRoutes})` : 'employee + contractor';
+    }
+
+    function computeAll() {
+        const cells = [];
+        Object.keys(techs).forEach(tc => DAYS.forEach(d => cells.push([tc, d.key])));
+        return cells;
+    }
+
+    function recomputeAll() {
+        computeAll().forEach(([tc, d]) => computeCellRoute(tc, d));
+        refreshWellMarkers();
+        recomputeKPIs();
+    }
+
+    function onPolicyToggle() { computeAll().forEach(([tc, d]) => computeCellRoute(tc, d)); }
+
+    function recomputeKPIs() {
+        const scheduled = workOrders.filter(w => w.assignedTech).length;
+        const criticalBacklog = workOrders.filter(w => !w.assignedTech && w.MaintTypeID === 'CM').length;
+        let totalCost = 0, totalMiles = 0, totalFlags = 0;
+        Object.values(routeMeta).forEach(m => {
+            if (!m || m.error) return;
+            totalCost += m.cost || 0; totalMiles += m.distanceMi || 0; totalFlags += (m.flags || []).length;
+        });
+
+        const set = (id, val, cls) => { const el = document.getElementById(id); el.textContent = val; el.className = 'kpi-val' + (cls ? ' ' + cls : ''); };
+        set('kpiScheduled', `${scheduled}/22`, scheduled === 22 ? 'ok' : '');
+        set('kpiCritical', criticalBacklog, criticalBacklog > 0 ? 'bad' : 'ok');
+        set('kpiCost', `$${Math.round(totalCost).toLocaleString()}`, '');
+        set('kpiMiles', `${Math.round(totalMiles)} mi`, '');
+        set('kpiFlags', totalFlags, totalFlags > 0 ? 'warn' : 'ok');
+    }
+    </script>
+    <footer class="page-footer">
+        <span>&copy; 2026 Bateman &middot; Gnanachandran &middot; DeMuth &mdash; Packt</span>
+        <span id="page-updated"></span>
+    </footer>
+    <script>(function(){var el=document.getElementById('page-updated');if(!el)return;var d=new Date(document.lastModified);if(isNaN(d))return;el.textContent='Updated '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});})();</script>
+</body>
+</html>
