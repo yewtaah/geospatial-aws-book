@@ -594,7 +594,7 @@ body {
 .author-image {
     width: 88px;
     height: 88px;
-    border-radius: 2px;
+    border-radius: 50%;
     object-fit: cover;
     border: 1px solid var(--border-mid);
 }
@@ -602,7 +602,7 @@ body {
 .author-image-placeholder {
     width: 88px;
     height: 88px;
-    border-radius: 2px;
+    border-radius: 50%;
     background: var(--bg-elevated);
     border: 1px solid var(--border-mid);
     display: flex;
