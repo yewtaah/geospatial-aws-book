@@ -1,0 +1,23 @@
+WorkOrderID,EquipID,EquipTypeID,EquipTypeName,MaintTypeID,MaintName,WellNumber,API,Latitude,Longitude,SafetyCritical,EffortHoursEst,StatusID
+WO-305001,WH-4401,26,Wellhead and Christmas Tree,PM,Routine wellhead check,4401,42-473-00109,29.85187198,-95.85807731,FALSE,0.4,NEW
+WO-305002,WH-0009,26,Wellhead and Christmas Tree,PM,Routine wellhead check,9,42-473-00108,29.85489814,-95.85464259,FALSE,0.4,NEW
+WO-305003,WH-4502,26,Wellhead and Christmas Tree,INS,Quarterly wellhead inspection,4502,42-473-00107,29.85824079,-95.85072446,FALSE,0.5,NEW
+WO-305004,WH-3505,26,Wellhead and Christmas Tree,CM,Gauge malfunction — corrective repair,3505,42-473-00106,29.86196798,-95.85510169,TRUE,2.2,NEW
+WO-305005,WH-4404D,26,Wellhead and Christmas Tree,CM,Flow anomaly — corrective repair,4404D,42-473-30305,29.85128099,-95.86373575,TRUE,2.0,NEW
+WO-305006,WH-4405,26,Wellhead and Christmas Tree,CM,Valve leak — corrective repair,4405,42-473-30309,29.8486784,-95.85916766,TRUE,2.4,NEW
+WO-305007,WH-4301,26,Wellhead and Christmas Tree,PM,Routine wellhead check,4301,42-473-00181,29.85616406,-95.87813056,FALSE,0.4,NEW
+WO-305008,WH-4305,26,Wellhead and Christmas Tree,INS,Quarterly wellhead inspection,4305,42-473-30413,29.85773479,-95.8763659,FALSE,0.5,NEW
+WO-305009,WH-3310,26,Wellhead and Christmas Tree,PM,Routine wellhead check,3310,42-473-00150,29.86347915,-95.88830918,FALSE,0.4,NEW
+WO-305010,WH-3308,26,Wellhead and Christmas Tree,CM,Compressor trip — corrective repair,3308,42-473-00149,29.86531029,-95.88478837,TRUE,2.5,NEW
+WO-305011,WH-3201,26,Wellhead and Christmas Tree,PM,Routine wellhead check,3201,42-473-00152,29.8706819,-95.89254431,FALSE,0.4,NEW
+WO-305012,WH-3203,26,Wellhead and Christmas Tree,INS,Quarterly wellhead inspection,3203,42-473-00163,29.86935845,-95.89260132,FALSE,0.5,NEW
+WO-305013,WH-3202,26,Wellhead and Christmas Tree,PM,Routine wellhead check,3202,42-473-00156,29.86162395,-95.89452041,FALSE,0.4,NEW
+WO-305014,WH-3207,26,Wellhead and Christmas Tree,PM,Routine wellhead check,3207,42-473-00154,29.86157999,-95.89770569,FALSE,0.4,NEW
+WO-305015,WH-2401,26,Wellhead and Christmas Tree,PM,Routine wellhead check,2401,42-473-00095,29.87621596,-95.87278946,FALSE,0.4,NEW
+WO-305016,WH-3401,26,Wellhead and Christmas Tree,INS,Quarterly wellhead inspection,3401,42-473-00096,29.87263196,-95.86770829,FALSE,0.5,NEW
+WO-305017,WH-3406,26,Wellhead and Christmas Tree,PM,Routine wellhead check,3406,42-473-80295,29.86896745,-95.86014175,FALSE,0.4,NEW
+WO-305018,WH-2308,26,Wellhead and Christmas Tree,PM,Routine wellhead check,2308,42-473-00086,29.87922704,-95.88745114,FALSE,0.4,NEW
+WO-305019,WH-2205,26,Wellhead and Christmas Tree,PM,Routine wellhead check,2205,42-473-00089,29.88330711,-95.89273901,FALSE,0.4,NEW
+WO-305020,WH-2202,26,Wellhead and Christmas Tree,INS,Quarterly wellhead inspection,2202,42-473-00158,29.88696847,-95.89284261,FALSE,0.5,NEW
+WO-305021,WH-2201,26,Wellhead and Christmas Tree,PM,Routine wellhead check,2201,42-473-00087,29.88323817,-95.90107669,FALSE,0.4,NEW
+WO-305022,WH-2306,26,Wellhead and Christmas Tree,PM,Routine wellhead check,2306,42-473-00081,29.88715189,-95.88027599,FALSE,0.4,NEW
