@@ -997,8 +997,11 @@
                 const counterfactualClock = estimateOfficeFirstRepairClock(techCode, wo, items, t);
                 const hoursSooner = counterfactualClock - actualClock;
                 if (hoursSooner > 0.05) {
-                    const mcfPerWeek = wo.TargetMcfPerDay * hoursSooner / 24;
-                    flags.push({ cls: 'ok', txt: `${wo.EquipID} fixed ${hoursSooner.toFixed(1)}h sooner by dispatching direct — ~${mcfPerWeek.toFixed(1)} Mcf/wk recovered` });
+                    // One-time recovery for this repair only -- the well is shut in either way until fixed,
+                    // dispatching direct just shrinks that downtime window; it doesn't add a recurring weekly gain.
+                    const mcfRecovered = wo.TargetMcfPerDay * hoursSooner / 24;
+                    const dollarsRecovered = mcfRecovered * NATURAL_GAS_PRICE_PER_MCF;
+                    flags.push({ cls: 'ok', txt: `${wo.EquipID} fixed ${hoursSooner.toFixed(1)}h sooner by dispatching direct — ~${mcfRecovered.toFixed(1)} Mcf ($${dollarsRecovered.toFixed(0)}) recovered this one time, not a recurring weekly gain` });
                 }
             });
 
