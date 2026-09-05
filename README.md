@@ -43,6 +43,10 @@ The companion site is a static GitHub Pages app with interactive in-browser play
 | Pipeline Builder | Drag-and-drop AWS ETL architecture designer |
 | Field Operator Efficiency | Live OSRM-routed maintenance scheduling across technicians and days |
 
+<img src="assets/Katy Field Team Map.png" alt="Katy Gas Field team map — technician homes, field office, and KGFCU wellheads on real OpenStreetMap roads" width="100%">
+
+*The Field Operator Efficiency playground's map view — three technicians' homes, the Hilcorp field office, and all 22 KGFCU wellheads, plotted at their real coordinates.*
+
 ---
 
 ## The authors
