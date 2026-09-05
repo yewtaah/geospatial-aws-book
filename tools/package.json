@@ -1,0 +1,8 @@
+{
+  "name": "geospatial-aws-book-tools",
+  "private": true,
+  "description": "Reusable node scripts for building/auditing map assets used by the book site and playgrounds.",
+  "dependencies": {
+    "sharp": "^0.35.4"
+  }
+}

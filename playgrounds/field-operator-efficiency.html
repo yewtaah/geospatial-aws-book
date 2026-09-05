@@ -85,8 +85,9 @@
         .well-label { font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.35; white-space: nowrap; }
         .well-label b { display: block; font-size: 10.5px; color: #f0f6fc; }
         .well-label.down b { color: #f97316; }
-        .seq-badge { font-family: 'Courier New', monospace; font-size: 10px; font-weight: 700; color: #fff;
-            display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid #0d1117; }
+        .seq-badge { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; color: #fff;
+            display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2.5px solid #0d1117;
+            box-shadow: 0 1px 4px rgba(0,0,0,.6); }
         .missed-ring { border-radius: 50%; border: 2px dashed #f97316; pointer-events: none;
             animation: missedPulse 1.8s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) { .missed-ring { animation: none; } }
@@ -138,6 +139,7 @@
         .wo-card.pm { border-left-color: var(--sky); }
         .wo-card.cm { border-left-color: var(--bad); background: rgba(239,68,68,.08); }
         .wo-card.com { border-left-color: #f97316; background: rgba(249,115,22,.1); }
+        .wo-card.office { border-left-color: #d4a017; background: rgba(212,160,23,.08); cursor: default; opacity: .8; }
         .wo-card b { display: block; font-family: 'Courier New', monospace; font-size: .68rem; }
         .wo-card .sub { color: var(--text-muted); font-size: .62rem; }
         .wo-card .prod { color: var(--text-dim); font-size: .6rem; font-family: 'Courier New', monospace; }
@@ -191,6 +193,7 @@
         <label class="assump-field"><span>Ruiz</span>$<input type="number" id="rateRUZ" min="0" step="1" onchange="updateTechRate('RUZ', this.value)">/hr</label>
         <label class="assump-field"><span>Krenek</span>$<input type="number" id="rateKRK" min="0" step="1" onchange="updateTechRate('KRK', this.value)">/hr</label>
         <label class="assump-field"><span>Natural gas price</span>$<input type="number" id="naturalGasPrice" min="0" step="0.05" onchange="updateNaturalGasPrice(this.value)">/Mcf</label>
+        <label class="assump-field"><span>Vehicle cost</span>$<input type="number" id="vehicleCostPerMile" min="0" step="0.01" onchange="updateVehicleCostPerMile(this.value)">/mi</label>
     </div>
 
     <div class="day-tabs" id="dayTabs"></div>
@@ -238,7 +241,7 @@
         <div class="kpi"><div class="kpi-label">Wells Scheduled</div><div class="kpi-val" id="kpiScheduled">–</div><div class="kpi-sub">of 22 KGFCU wellheads</div></div>
         <div class="kpi"><div class="kpi-label">Critical Backlog</div><div class="kpi-val" id="kpiCritical">–</div><div class="kpi-sub">unscheduled CM / COM</div></div>
         <div class="kpi"><div class="kpi-label">Deferred Production /yr</div><div class="kpi-val" id="kpiProduction">–</div><div class="kpi-sub" id="kpiProductionSub">natural gas left in the ground</div></div>
-        <div class="kpi"><div class="kpi-label" id="kpiCostLabel">Total Labor /yr</div><div class="kpi-val" id="kpiCostTotal">–</div><div class="kpi-sub"><span class="line" id="kpiCostFixed">–</span><span class="line" id="kpiCostVariable">–</span></div></div>
+        <div class="kpi"><div class="kpi-label" id="kpiCostLabel">Total Cost /yr</div><div class="kpi-val" id="kpiCostTotal">–</div><div class="kpi-sub"><span class="line" id="kpiCostFixed">–</span><span class="line" id="kpiCostVariable">–</span><span class="line" id="kpiCostVehicle">–</span></div></div>
         <div class="kpi"><div class="kpi-label">Drive Distance /yr</div><div class="kpi-val" id="kpiMiles">–</div><div class="kpi-sub">all technicians</div></div>
         <div class="kpi"><div class="kpi-label">Compliance Flags</div><div class="kpi-val" id="kpiFlags">–</div><div class="kpi-sub">heat / policy / RTU / cost</div></div>
         <div class="kpi kpi-highlight"><div class="kpi-label">Net Value /yr</div><div class="kpi-val" id="kpiNetValue">–</div><div class="kpi-sub">production value protected − total labor</div></div>
@@ -259,15 +262,16 @@
     const RTU_REBOOT_MINUTES = 2;  // "sometimes the RTU just needs to be rebooted" -- trivial fix, any technician
     let NATURAL_GAS_PRICE_PER_MCF = 3.25; // illustrative Henry-Hub-ish price, for a $ read on deferred production -- user-editable
     const WEEKS_PER_YEAR = 52; // KPI strip annualizes this one representative week's cost/mileage/deferment
+    let VEHICLE_COST_PER_MILE = 0.67; // fuel + insurance + wear -- roughly the IRS standard mileage rate -- user-editable
 
     // Default seed schedule: EquipID -> [techCode, dayIdx]. Four wells are deliberately left out
     // (WH-3207 and WH-2306 -- open RTU comms faults, and WH-3406 / WH-2308 -- routine checks) so
     // the backlog isn't empty on load.
     const SEED = {
-        'WH-4401':['ALV',0], 'WH-0009':['ALV',0], 'WH-4502':['ALV',0],
+        'WH-4401':['ALV',0], 'WH-0001':['ALV',0], 'WH-0011':['ALV',0],
         'WH-3310':['RUZ',0],
         'WH-4301':['ALV',1], 'WH-4305':['ALV',1], 'WH-3201':['RUZ',1], 'WH-3203':['RUZ',1],
-        'WH-3505':['KRK',1],
+        'WH-6606':['KRK',1],
         'WH-3202':['ALV',2], 'WH-2401':['RUZ',2], 'WH-3401':['RUZ',2],
         'WH-2205':['RUZ',3],
         'WH-3308':['KRK',3],
@@ -369,6 +373,7 @@
         renderPlaybackTechButtons();
         ['ALV', 'RUZ', 'KRK'].forEach(tc => { document.getElementById(`rate${tc}`).value = techs[tc].hourly_rate_usd; });
         document.getElementById('naturalGasPrice').value = NATURAL_GAS_PRICE_PER_MCF;
+        document.getElementById('vehicleCostPerMile').value = VEHICLE_COST_PER_MILE;
     }
 
     // Editable assumptions: rates/price change the $ math instantly without re-hitting OSRM --
@@ -386,6 +391,18 @@
             const statsEl = document.getElementById(`stats_${key}`);
             if (statsEl) statsEl.innerHTML = renderCellStats(m);
         });
+        recomputeKPIs();
+    }
+    function updateVehicleCostPerMile(val) {
+        const rate = parseFloat(val);
+        if (!(rate >= 0)) return;
+        VEHICLE_COST_PER_MILE = rate;
+        Object.values(routeMeta).forEach(m => { if (m && !m.error) m.vehicleCost = m.distanceMi * rate; });
+        DAYS.forEach(d => Object.keys(techs).forEach(tc => {
+            const key = `${tc}_${d.key}`, m = routeMeta[key];
+            const statsEl = document.getElementById(`stats_${key}`);
+            if (statsEl && m && !m.error) statsEl.innerHTML = renderCellStats(m);
+        }));
         recomputeKPIs();
     }
     function updateNaturalGasPrice(val) {
@@ -528,6 +545,13 @@
             <b>${w.EquipID} · ${w.MaintTypeID}</b><span class="sub">${w.MaintName}</span>${prod}</div>`;
     }
 
+    // Non-draggable -- just shows where the office visit falls in the day's real sequence, so
+    // "critical work first, office after" (or the always-present afternoon data-entry stop) is
+    // visible on the board itself, not just implied by the routing underneath it.
+    function officeCardHTML(label) {
+        return `<div class="wo-card office"><b>🏢 Field Office</b><span class="sub">${label}</span></div>`;
+    }
+
     function renderBoard() {
         const backlog = document.getElementById('backlog');
         const unassigned = workOrders.filter(w => !w.assignedTech);
@@ -559,8 +583,14 @@
     function refreshCellCards() {
         Object.values(techs).forEach(t => DAYS.forEach(d => {
             const el = document.getElementById(`cards_${t.tech_code}_${d.key}`);
-            const items = workOrders.filter(w => w.assignedTech === t.tech_code && w.assignedDay === d.key);
-            el.innerHTML = items.map(woCardHTML).join('');
+            const plan = buildDayPlan(t.tech_code, d.key);
+            if (!plan) { el.innerHTML = ''; return; }
+            let officeVisits = 0;
+            el.innerHTML = plan.stops.slice(1, -1).map(s => {
+                if (s.type === 'well') return woCardHTML(s.wo);
+                officeVisits++;
+                return officeCardHTML(officeVisits === 1 ? 'Get assignment' : 'Data entry / paperwork');
+            }).join('');
         }));
     }
 
@@ -619,8 +649,6 @@
         const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lon - a.lon));
         return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
-    function midpoint(a, b) { return { lat: (a.lat + b.lat) / 2, lon: (a.lon + b.lon) / 2 }; }
-
     // Small-area local projection (equirectangular, fine over a few tens of km) so "how close did
     // the route pass to this well" can be a plain 2D point-to-segment distance instead of spherical
     // geometry -- used only for the SCADA-blind-spot detector below.
@@ -652,7 +680,8 @@
         return best;
     }
 
-    const OFFICE_DWELL_HOURS = 0.5; // "figure out what to do" stop -- fixed once/day for employees, before the first well
+    const OFFICE_DWELL_HOURS = 0.5;  // morning "figure out what to do" stop -- fixed once/day for employees
+    const DATA_ENTRY_HOURS = 0.4;    // afternoon office stop -- logging readings/work order completions, every day, policy or not
     const MISSED_WELL_THRESHOLD_MI = 0.5; // how close the commute has to pass a down well to count as "drove right past it"
 
     // Task time now includes real per-well site access (see siteAccessMinutes) -- a well OSRM can
@@ -665,22 +694,36 @@
     // Visit order + full stop sequence for a technician's day -- shared by the live route
     // computation, the optimizer's capacity estimator, and the time-player, so none of them can
     // silently disagree about what "this day's plan" actually is.
+    //
+    // Critical (CM/COM) work that's already on the board is *known in advance* -- it was dispatched,
+    // not discovered -- so an employee heads straight there before the office, instead of driving
+    // past it to go "find out" something already on their work order. Routine PM/INS still waits for
+    // the morning office stop, since that's genuinely where the day's paper list comes from. The
+    // office is always visited a second time in the afternoon (real data-entry/paperwork time),
+    // independent of the 8-hour policy -- the policy only decides whether that stop gets padded out.
     function orderStopsForTech(techCode, items, policyOn) {
         const t = techs[techCode];
         const home = { type: 'home', key: `HOME_${techCode}`, lat: t.home_lat, lon: t.home_lon };
         const office = { type: 'office', key: 'OFFICE', lat: OFFICE.lat, lon: OFFICE.lon };
         const wellPts = items.map(w => ({ type: 'well', key: w.EquipID, lat: w.Latitude, lon: w.Longitude, wo: w }));
-        const anchor = t.uses_office ? office : home;
         // Big producers waiting on repair need to come back online ASAP, so order urgent (CM/COM)
         // stops -- by production impact, largest first -- ahead of routine PM/INS on the same run.
-        // Nearest-neighbor still decides order *within* each priority tier, to keep the route sane.
         const urgent = wellPts.filter(p => isDownTask(p.wo)).sort((a, b) => b.wo.TargetMcfPerDay - a.wo.TargetMcfPerDay);
         const routine = wellPts.filter(p => !isDownTask(p.wo));
-        const ordered = [...nearestNeighborOrder(anchor, urgent), ...nearestNeighborOrder(urgent.length ? urgent[urgent.length - 1] : anchor, routine)];
-        const stops = t.uses_office
-            ? [home, office, ...ordered, ...(policyOn ? [office] : []), home]
-            : [home, ...ordered, home];
-        return { ordered, stops };
+
+        if (!t.uses_office) {
+            // Contractor: no office at all, works straight out of his own yard.
+            const ordered = [...nearestNeighborOrder(home, urgent), ...nearestNeighborOrder(urgent.length ? urgent[urgent.length - 1] : home, routine)];
+            return { ordered, stops: [home, ...ordered, home], preOfficeWells: [] };
+        }
+
+        // Pre-office leg starts from home (wherever the urgent work actually is); post-office work
+        // always starts from the office, since that's where the tech physically is at that point.
+        const preOffice = nearestNeighborOrder(home, urgent);
+        const postOffice = nearestNeighborOrder(office, routine);
+        const ordered = [...preOffice, ...postOffice];
+        const stops = [home, ...preOffice, office, ...postOffice, office, home];
+        return { ordered, stops, preOfficeWells: preOffice.map(p => p.wo) };
     }
 
     // Single source of truth for "what order does this technician visit these wells in, and what's
@@ -691,8 +734,8 @@
         const items = workOrders.filter(w => w.assignedTech === techCode && w.assignedDay === dayIdx);
         if (!items.length) return null;
         const policyOn = document.getElementById('enforcePolicy').checked;
-        const { ordered, stops } = orderStopsForTech(techCode, items, policyOn);
-        return { t, items, ordered, stops, policyOn, effortMin: items.reduce((s, w) => s + taskHours(t, w) * 60, 0) };
+        const { ordered, stops, preOfficeWells } = orderStopsForTech(techCode, items, policyOn);
+        return { t, items, ordered, stops, preOfficeWells, policyOn, effortMin: items.reduce((s, w) => s + taskHours(t, w) * 60, 0) };
     }
 
     // Matrix-only estimate of a candidate day's total hours (drive + task + site access) -- no
@@ -708,6 +751,59 @@
         return driveHours + effortHours;
     }
 
+    function stopLabel(s) {
+        if (s.type === 'well') return s.wo.EquipID;
+        if (s.type === 'office') return 'Field Office';
+        return 'Home';
+    }
+
+    // Split one continuous route geometry into per-leg sub-paths, by walking cumulative distance
+    // against each leg's real length -- lets every leg get drawn (and clicked) as its own segment
+    // instead of one long unclickable line.
+    function splitRouteIntoLegs(coordPts, legs) {
+        const segments = [];
+        let legIdx = 0, accInLeg = 0, current = [coordPts[0]];
+        for (let i = 1; i < coordPts.length; i++) {
+            current.push(coordPts[i]);
+            accInLeg += haversineMeters(coordPts[i - 1], coordPts[i]);
+            if (legIdx < legs.length - 1 && accInLeg >= legs[legIdx].distance) {
+                segments.push(current);
+                legIdx++; accInLeg = 0;
+                current = [coordPts[i]];
+            }
+        }
+        segments.push(current);
+        while (segments.length < legs.length) segments.push([coordPts[coordPts.length - 1], coordPts[coordPts.length - 1]]);
+        return segments.slice(0, legs.length);
+    }
+
+    // Counterfactual, matrix-only (no network call): what would this SAME critical well's repair
+    // clock have been under the old always-office-first order? Used to quantify the production
+    // uplift of dispatching straight to known critical work instead of routing through the office.
+    function estimateOfficeFirstRepairClock(techCode, criticalWo, items, t) {
+        const home = { type: 'home', key: `HOME_${techCode}`, lat: t.home_lat, lon: t.home_lon };
+        const office = { type: 'office', key: 'OFFICE', lat: OFFICE.lat, lon: OFFICE.lon };
+        const wellPts = items.map(w => ({ type: 'well', key: w.EquipID, lat: w.Latitude, lon: w.Longitude, wo: w }));
+        const urgent = wellPts.filter(p => isDownTask(p.wo)).sort((a, b) => b.wo.TargetMcfPerDay - a.wo.TargetMcfPerDay);
+        const routine = wellPts.filter(p => !isDownTask(p.wo));
+        const ordered = [...nearestNeighborOrder(office, urgent), ...nearestNeighborOrder(urgent.length ? urgent[urgent.length - 1] : office, routine)];
+        const oldStops = [home, office, ...ordered, office, home];
+        let clock = t.start_hour_local, officeVisits = 0;
+        for (let i = 0; i < oldStops.length - 1; i++) {
+            clock += travelCost(oldStops[i], oldStops[i + 1]) / 3600;
+            const dest = oldStops[i + 1];
+            if (i === oldStops.length - 2) break; // final arrival home, no dwell
+            if (dest.type === 'well') {
+                clock += taskHours(t, dest.wo);
+                if (dest.wo === criticalWo) return clock;
+            } else {
+                officeVisits++;
+                clock += officeVisits === 1 ? OFFICE_DWELL_HOURS : DATA_ENTRY_HOURS;
+            }
+        }
+        return clock;
+    }
+
     async function computeCellRoute(techCode, dayIdx) {
         const key = `${techCode}_${dayIdx}`;
         const myGen = (routeGen[key] = (routeGen[key] || 0) + 1); // this call owns `key` until a newer one starts
@@ -717,7 +813,7 @@
 
         const plan = buildDayPlan(techCode, dayIdx);
         if (!plan) { delete routeMeta[key]; if (statsEl) statsEl.innerHTML = '—'; recomputeKPIs(); return; }
-        const { t, items, ordered, stops, policyOn, effortMin } = plan;
+        const { t, items, ordered, stops, preOfficeWells, policyOn, effortMin } = plan;
         const waypoints = stops; // {lat,lon} is all the coord-string builder below needs
 
         if (statsEl) statsEl.innerHTML = '<span style="opacity:.6">routing…</span>';
@@ -731,59 +827,135 @@
             if (routeGen[key] !== myGen) return; // a newer drag re-requested this cell while we were in flight -- discard
 
             const route = json.routes[0];
-            const latlngs = route.geometry.coordinates.map(c => [c[1], c[0]]);
             const coordPts = route.geometry.coordinates.map(c => ({ lat: c[1], lon: c[0] }));
+            const legSegments = splitRouteIntoLegs(coordPts, route.legs);
             const markers = [];
-            markers.push(L.polyline(latlngs, { color: techColorHex(techCode), weight: 4, opacity: .85 }).addTo(layerGroup));
 
-            // Sequence badges (visit order) + direction arrows at each leg's midpoint -- the route
-            // line alone doesn't say which way, or in what order, the truck actually moves.
+            // Walk the route leg-by-leg ONCE: real per-well repair-completion clocks, when the
+            // last bit of actual outdoor fieldwork finishes (heat check), and the day's true
+            // elapsed hours -- office dwell time included as it happens, not bolted on after.
+            const legInfo = [];
+            let clock = t.start_hour_local, officeVisits = 0, lastFieldClock = t.start_hour_local, lastOfficeLegIdx = -1;
+            for (let i = 0; i < stops.length - 1; i++) {
+                const startClock = clock;
+                clock += route.legs[i].duration / 3600;
+                const arriveClock = clock;
+                const dest = stops[i + 1];
+                const isFinalLeg = (i === stops.length - 2);
+                let dwellHours = 0, dwellLabel = null;
+                if (!isFinalLeg) {
+                    if (dest.type === 'well') {
+                        dwellHours = taskHours(t, dest.wo);
+                        dwellLabel = `Servicing ${dest.wo.EquipID}`;
+                        clock += dwellHours;
+                        if (isDownTask(dest.wo)) dest.wo.repairAtWeekHour = dayIdx * 24 + clock;
+                        lastFieldClock = clock;
+                    } else if (dest.type === 'office') {
+                        officeVisits++;
+                        dwellHours = officeVisits === 1 ? OFFICE_DWELL_HOURS : DATA_ENTRY_HOURS;
+                        dwellLabel = officeVisits === 1 ? 'Field office — assignment' : 'Field office — data entry';
+                        clock += dwellHours;
+                        if (officeVisits >= 2) lastOfficeLegIdx = i;
+                    }
+                }
+                legInfo.push({ from: stops[i], to: dest, startClock, arriveClock, dwellHours, dwellLabel,
+                    driveHours: route.legs[i].duration / 3600, distanceMi: route.legs[i].distance / 1609.34 });
+            }
+            const naturalHours = clock - t.start_hour_local; // full day, before any policy padding
+            const pad = (t.uses_office && policyOn) ? Math.max(0, 8 - naturalHours) : 0;
+            const billableHours = naturalHours + pad;
+            if (pad > 0 && lastOfficeLegIdx >= 0) {
+                legInfo[lastOfficeLegIdx].dwellHours += pad;
+                legInfo[lastOfficeLegIdx].dwellLabel += ' + waiting out the shift';
+                for (let i = lastOfficeLegIdx + 1; i < legInfo.length; i++) { legInfo[i].startClock += pad; legInfo[i].arriveClock += pad; }
+            }
+            const fieldFinishClock = lastFieldClock;
+
+            // Draw each leg as its own clickable/hoverable segment -- start point, start time,
+            // drive time, finish point, finish time -- instead of one long unclickable line. The
+            // direction arrow rides the *actual road path* at its own local bearing there, not a
+            // straight line between the two stops -- a real route often has to dogleg out to a
+            // through-road and back, and a straight-line arrow points the wrong way across a field.
+            legInfo.forEach((li, i) => {
+                const path = legSegments[i];
+                const segCoords = path.map(c => [c.lat, c.lon]);
+                const popupHtml = `<b>${stopLabel(li.from)} → ${stopLabel(li.to)}</b><br>` +
+                    `Depart ${clockStr(li.startClock)} · Arrive ${clockStr(li.arriveClock)}<br>` +
+                    `<span style="color:#9aa1b8">${Math.round(li.driveHours * 60)} min drive · ${li.distanceMi.toFixed(1)} mi</span>` +
+                    (li.dwellLabel ? `<br><span style="color:#9aa1b8">${li.dwellLabel} — ${Math.round(li.dwellHours * 60)} min</span>` : '');
+                const segLine = L.polyline(segCoords, { color: techColorHex(techCode), weight: 4, opacity: .85 })
+                    .addTo(layerGroup).bindPopup(popupHtml);
+                segLine.on('mouseover', function () { this.setStyle({ weight: 7 }); });
+                segLine.on('mouseout', function () { this.setStyle({ weight: 4 }); });
+                markers.push(segLine);
+
+                if (path.length >= 2) {
+                    const midIdx = Math.floor(path.length / 2);
+                    const p0 = path[Math.max(0, midIdx - 1)], p1 = path[Math.min(path.length - 1, midIdx + 1)];
+                    const midPt = path[midIdx];
+                    const arrow = L.marker([midPt.lat, midPt.lon], {
+                        icon: L.divIcon({
+                            className: '', iconSize: [14, 14], iconAnchor: [7, 7],
+                            html: `<div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid ${techColorHex(techCode)};transform:rotate(${bearingDeg(p0, p1)}deg);filter:drop-shadow(0 0 1.5px #0d1117)"></div>`
+                        }), interactive: false
+                    }).addTo(layerGroup);
+                    markers.push(arrow);
+                }
+            });
+
+            // Sequence badges -- visit order at each well stop. The route line + arrows above
+            // already carry direction; badges just number the stops.
             ordered.forEach((pt, i) => {
                 const badge = L.marker([pt.lat, pt.lon], {
                     icon: L.divIcon({
-                        className: '', iconSize: [16, 16], iconAnchor: [-6, 18],
-                        html: `<div class="seq-badge" style="width:16px;height:16px;background:${techColorHex(techCode)}">${i + 1}</div>`
+                        className: '', iconSize: [24, 24], iconAnchor: [-8, 26], zIndexOffset: 900,
+                        html: `<div class="seq-badge" style="width:24px;height:24px;background:${techColorHex(techCode)}">${i + 1}</div>`
                     })
                 }).addTo(layerGroup);
                 markers.push(badge);
             });
-            for (let i = 0; i < waypoints.length - 1; i++) {
-                const a = waypoints[i], b = waypoints[i + 1];
-                if (a.lat === b.lat && a.lon === b.lon) continue;
-                const mid = midpoint(a, b);
-                const arrow = L.marker([mid.lat, mid.lon], {
-                    icon: L.divIcon({
-                        className: '', iconSize: [14, 14], iconAnchor: [7, 7],
-                        html: `<div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid ${techColorHex(techCode)};transform:rotate(${bearingDeg(a, b)}deg);filter:drop-shadow(0 0 1.5px #0d1117)"></div>`
-                    }), interactive: false
-                }).addTo(layerGroup);
-                markers.push(arrow);
-            }
 
             // "Last mile" spur: OSRM can only route a truck to the nearest point actually in the
             // road network, which for a lot of these lease pads is short of the true wellhead
             // (some by 400+ meters -- see MATRIX / siteAccessMinutes). Draw the gap as a dashed
-            // line so the map is honest about where the truck actually stops vs. where it walks.
+            // line, labeled with the actual walk distance, so the map is honest about where the
+            // truck stops vs. where someone's on foot.
             json.waypoints.forEach((wp, i) => {
                 if (stops[i].type !== 'well' || wp.distance < SPUR_THRESHOLD_M) return;
-                const spur = L.polyline([[wp.location[1], wp.location[0]], [stops[i].lat, stops[i].lon]], {
+                const spurEnd = [wp.location[1], wp.location[0]], spurStart = [stops[i].lat, stops[i].lon];
+                const spur = L.polyline([spurEnd, spurStart], {
                     color: techColorHex(techCode), weight: 2.5, opacity: .8, dashArray: '2,5'
                 }).addTo(layerGroup);
                 markers.push(spur);
+                const feet = Math.round(wp.distance * 3.28084);
+                const walkDistLabel = feet >= 1000 ? `${(wp.distance / 1609.34).toFixed(1)} mi walk` : `${feet} ft walk`;
+                const midLat = (spurEnd[0] + spurStart[0]) / 2, midLon = (spurEnd[1] + spurStart[1]) / 2;
+                const spurLabel = L.marker([midLat, midLon], {
+                    icon: L.divIcon({
+                        className: '', iconSize: [0, 0],
+                        html: `<div style="white-space:nowrap;transform:translate(6px,-8px);font-family:'Courier New',monospace;font-size:10px;color:#fff;background:rgba(8,13,26,.85);border:1px solid ${techColorHex(techCode)};border-radius:3px;padding:1px 4px;">🚶 ${walkDistLabel}</div>`
+                    }), interactive: false
+                }).addTo(layerGroup);
+                markers.push(spurLabel);
             });
 
-            // SCADA-blind-spot check: for an employee, the home->office commute (leg 0) is driven
-            // with zero visibility into well status -- there's no remote telemetry, only whatever
-            // the office tells them once they arrive. If that commute passes close to a well that's
-            // down but NOT on today's list for this technician, flag it: they drove right past a
-            // well that could have been brought back online, and had no way to know.
+            // SCADA-blind-spot check: for an employee, everything driven before FIRST reaching the
+            // office is driven with zero visibility into well status -- there's no remote telemetry,
+            // only whatever the office tells them once they arrive. If that stretch passes close to
+            // a well that's down but NOT on today's list, flag it: they drove right past a well that
+            // could have been brought back online, and had no way to know.
             const missedWells = [];
             if (t.uses_office) {
-                const leg0Dist = route.legs[0].distance;
+                // The "blind" commute now runs from home to wherever the office FIRST appears in
+                // the stop order -- one leg if it's the very next stop, several if known critical
+                // work gets visited first. Either way, it's every mile driven before the tech has
+                // the office's alarm list in hand.
+                const officeIdx = stops.findIndex(s => s.type === 'office');
+                const preOfficeDist = route.legs.slice(0, officeIdx).reduce((s, l) => s + l.distance, 0);
                 let acc = 0, cutIdx = coordPts.length - 1;
                 for (let i = 1; i < coordPts.length; i++) {
                     acc += haversineMeters(coordPts[i - 1], coordPts[i]);
-                    if (acc >= leg0Dist) { cutIdx = i; break; }
+                    if (acc >= preOfficeDist) { cutIdx = i; break; }
                 }
                 const commutePath = coordPts.slice(0, cutIdx + 1);
                 workOrders.forEach(w => {
@@ -804,27 +976,8 @@
 
             const driveHours = route.duration / 3600;
             const effortHours = effortMin / 60;
-            const naturalHours = driveHours + effortHours;
-            const billableHours = t.uses_office && policyOn ? Math.max(8, naturalHours) : naturalHours;
-
-            // The route's last 1 (contractor/no-policy) or 2 (employee + office policy) legs are
-            // the trip *home* -- not fieldwork. Real per-leg OSRM durations, not an estimate, so
-            // the "back at the truck" clock below reflects the actual routed drive time.
-            const numTailLegs = (t.uses_office && policyOn) ? 2 : 1;
-            const tailHours = route.legs.slice(-numTailLegs).reduce((s, l) => s + l.duration, 0) / 3600;
-            const fieldHours = (driveHours - tailHours) + effortHours;
-            const fieldFinishClock = t.start_hour_local + fieldHours;
-
-            // Walk the actual route leg-by-leg to get each well's real completion clock time --
-            // this is what makes "fix it first thing Monday" vs "fix it Friday afternoon" show up
-            // as different deferred-production numbers at hourly, not just daily, resolution.
-            let clock = t.start_hour_local, legIdx = 0;
-            if (t.uses_office) { clock += route.legs[legIdx++].duration / 3600; clock += OFFICE_DWELL_HOURS; }
-            ordered.forEach(pt => {
-                clock += route.legs[legIdx++].duration / 3600; // arrival
-                clock += taskHours(t, pt.wo);                  // completion
-                if (isDownTask(pt.wo)) pt.wo.repairAtWeekHour = dayIdx * 24 + clock;
-            });
+            const distanceMi = route.distance / 1609.34;
+            const vehicleCost = distanceMi * VEHICLE_COST_PER_MILE;
 
             const flags = [];
             if (t.uses_office && !policyOn && naturalHours < 8) flags.push({ cls: 'warn', txt: `Under 8-hr shift (${naturalHours.toFixed(1)}h) — policy non-compliant` });
@@ -836,10 +989,21 @@
                 const accessMin = siteAccessMinutes(w);
                 if (accessMin >= 6) flags.push({ cls: 'warn', txt: `${w.EquipID} is ~${Math.round(accessMin)} min off the mapped road — unmapped lease access` });
             });
+            // Quantified payoff of dispatching straight to known critical work instead of routing
+            // through the office first -- matrix-only counterfactual, no extra network call.
+            preOfficeWells.forEach(wo => {
+                const actualClock = wo.repairAtWeekHour - dayIdx * 24;
+                const counterfactualClock = estimateOfficeFirstRepairClock(techCode, wo, items, t);
+                const hoursSooner = counterfactualClock - actualClock;
+                if (hoursSooner > 0.05) {
+                    const mcfPerWeek = wo.TargetMcfPerDay * hoursSooner / 24;
+                    flags.push({ cls: 'ok', txt: `${wo.EquipID} fixed ${hoursSooner.toFixed(1)}h sooner by dispatching direct — ~${mcfPerWeek.toFixed(1)} Mcf/wk recovered` });
+                }
+            });
 
             routeMeta[key] = {
-                markers, driveHours, distanceMi: route.distance / 1609.34, effortHours, naturalHours, billableHours,
-                cost: billableHours * t.hourly_rate_usd, flags, wellCount: items.length, missedWells,
+                markers, driveHours, distanceMi, effortHours, naturalHours, billableHours,
+                cost: billableHours * t.hourly_rate_usd, vehicleCost, flags, wellCount: items.length, missedWells,
                 stops, ordered, // for the time-player: same stop sequence, re-fetched with turn detail on Play
             };
 
@@ -917,16 +1081,13 @@
         if (!json || json.code !== 'Ok') { statusEl.textContent = 'Playback route unavailable.'; return; }
         const route = json.routes[0];
 
-        const driveHours = route.duration / 3600;
-        const effortHours = effortMin / 60;
-        const naturalHours = driveHours + effortHours;
-        const billableHours = t.uses_office && policyOn ? Math.max(8, naturalHours) : naturalHours;
-
-        // Same SCADA-blind-spot detector as the static map, run once against this fetch's own
-        // home->office leg geometry, with each hit's position along that leg for timing the callout.
+        // Same SCADA-blind-spot detector as the static map: home to wherever the office first
+        // appears in the stop order (one leg, or several if known critical work comes first).
         const missed = [];
-        if (t.uses_office && route.legs[0].steps) {
-            const commuteCoords = route.legs[0].steps.flatMap(s => s.geometry.coordinates.map(c => ({ lat: c[1], lon: c[0] })));
+        if (t.uses_office) {
+            const officeIdxInStops = stops.findIndex(s => s.type === 'office');
+            const commuteCoords = route.legs.slice(0, officeIdxInStops)
+                .flatMap(l => (l.steps || []).flatMap(s => s.geometry.coordinates.map(c => ({ lat: c[1], lon: c[0] }))));
             workOrders.forEach(w => {
                 if (!isDownTask(w)) return;
                 if (w.assignedTech === techCode && w.assignedDay === dayIdx) return;
@@ -935,30 +1096,40 @@
             });
         }
 
-        const segments = [];
-        let clock = t.start_hour_local;
-        let sawOffice = false;
-        for (let i = 0; i < stops.length - 1; i++) {
-            const leg = route.legs[i];
-            const coords = (leg.steps || []).flatMap(s => s.geometry.coordinates.map(c => ({ lat: c[1], lon: c[0] })));
-            const durH = leg.duration / 3600;
-            if (coords.length >= 2 && durH > 0) segments.push({ kind: 'drive', startH: clock, endH: clock + durH, coords, fromStop: stops[i], toStop: stops[i + 1] });
-            clock += durH;
-
-            const dest = stops[i + 1];
-            let dwellH = 0, label = '';
-            if (dest.type === 'well') { dwellH = taskHours(t, dest.wo); label = `Servicing ${dest.wo.EquipID} — ${dest.wo.MaintName}`; }
-            else if (dest.type === 'office') {
-                dwellH = sawOffice ? Math.max(0, billableHours - naturalHours) : OFFICE_DWELL_HOURS;
-                label = sawOffice ? 'At the field office — sitting out the rest of the shift' : "At the field office — getting today's assignment";
-                sawOffice = true;
+        // Build the day's timeline once with no policy padding to learn its true unpadded length,
+        // then (only if the policy needs it) rebuild once more with that padding folded into the
+        // final office stop -- avoids the chicken-and-egg of not knowing the pad before the walk.
+        function buildSegments(padHours) {
+            const segs = [];
+            let clock = t.start_hour_local, officeVisits = 0;
+            for (let i = 0; i < stops.length - 1; i++) {
+                const leg = route.legs[i];
+                const coords = (leg.steps || []).flatMap(s => s.geometry.coordinates.map(c => ({ lat: c[1], lon: c[0] })));
+                const durH = leg.duration / 3600;
+                if (coords.length >= 2 && durH > 0) segs.push({ kind: 'drive', startH: clock, endH: clock + durH, coords, fromStop: stops[i], toStop: stops[i + 1] });
+                clock += durH;
+                const dest = stops[i + 1];
+                if (i === stops.length - 2) continue; // final arrival home, no dwell
+                let dwellH = 0, label = '';
+                if (dest.type === 'well') { dwellH = taskHours(t, dest.wo); label = `Servicing ${dest.wo.EquipID} — ${dest.wo.MaintName}`; }
+                else if (dest.type === 'office') {
+                    officeVisits++;
+                    dwellH = officeVisits === 1 ? OFFICE_DWELL_HOURS : DATA_ENTRY_HOURS + padHours;
+                    label = officeVisits === 1 ? "At the field office — getting today's assignment"
+                        : 'At the field office — data entry' + (padHours > 0 ? ' (and waiting out the shift)' : '');
+                }
+                if (dwellH > 0.001) { segs.push({ kind: 'dwell', startH: clock, endH: clock + dwellH, at: dest, label }); clock += dwellH; }
             }
-            if (dwellH > 0.001) { segments.push({ kind: 'dwell', startH: clock, endH: clock + dwellH, at: dest, label }); clock += dwellH; }
+            return { segs, totalH: clock - t.start_hour_local };
         }
+        const naturalPass = buildSegments(0);
+        const pad = (t.uses_office && policyOn) ? Math.max(0, 8 - naturalPass.totalH) : 0;
+        const finalPass = pad > 0 ? buildSegments(pad) : naturalPass;
+        const segments = finalPass.segs;
         if (!segments.length) { statusEl.textContent = 'Nothing to replay.'; return; }
 
         playback = {
-            techCode, dayIdx, segments, totalHours: clock - t.start_hour_local, startClock: t.start_hour_local,
+            techCode, dayIdx, segments, totalHours: finalPass.totalH, startClock: t.start_hour_local,
             missed, marker: null, playing: false, speed: 1, elapsedH: 0, triggered: new Set(), lastTs: null, raf: null,
         };
         playback.marker = L.marker([stops[0].lat, stops[0].lon], {
@@ -1073,13 +1244,13 @@
     function renderCellStats(m) {
         if (!m) return '—';
         let html = `${m.wellCount} well${m.wellCount === 1 ? '' : 's'} · ${m.distanceMi.toFixed(1)} mi · ${m.naturalHours.toFixed(1)}h field`;
-        html += `<br>$${Math.round(m.cost).toLocaleString()} billed (${m.billableHours.toFixed(1)}h)`;
-        m.flags.forEach(f => { html += `<span class="flag ${f.cls}">⚠ ${f.txt}</span>`; });
+        html += `<br>$${Math.round(m.cost).toLocaleString()} billed (${m.billableHours.toFixed(1)}h) + $${Math.round(m.vehicleCost).toLocaleString()} vehicle`;
+        m.flags.forEach(f => { const icon = f.cls === 'ok' ? '✓' : '⚠'; html += `<span class="flag ${f.cls}">${icon} ${f.txt}</span>`; });
         return html;
     }
 
     function updatePendingIndicator() {
-        document.getElementById('kpiCostLabel').textContent = pendingRoutes > 0 ? `Total Labor /yr — routing… (${pendingRoutes})` : 'Total Labor /yr';
+        document.getElementById('kpiCostLabel').textContent = pendingRoutes > 0 ? `Total Cost /yr — routing… (${pendingRoutes})` : 'Total Cost /yr';
     }
 
     function computeAll() {
@@ -1195,12 +1366,13 @@
         // Variable labor = the contractor: strictly pay-for-what-you-use, so it scales directly
         // with how much work actually gets routed to him. Splitting them is the point -- it's what
         // shows whether shifting work to the contractor is actually cheaper, not just "different."
-        let fixedCost = 0, variableCost = 0, totalMiles = 0, totalFlags = 0;
+        let fixedCost = 0, variableCost = 0, vehicleCostTotal = 0, totalMiles = 0, totalFlags = 0;
         Object.entries(routeMeta).forEach(([key, m]) => {
             if (!m || m.error) return;
             const tc = key.split('_')[0];
             if (techs[tc].employment_type === 'contractor') variableCost += m.cost || 0;
             else fixedCost += m.cost || 0;
+            vehicleCostTotal += m.vehicleCost || 0;
             totalMiles += m.distanceMi || 0; totalFlags += (m.flags || []).length;
         });
         totalFlags += openRepairs.length; // every unscheduled CM/COM is its own compliance flag
@@ -1217,17 +1389,20 @@
             ? `≈ $${Math.round(annualMcf * NATURAL_GAS_PRICE_PER_MCF).toLocaleString()} at $${NATURAL_GAS_PRICE_PER_MCF}/Mcf`
             : 'no wells down this week';
         const annualFixed = fixedCost * WEEKS_PER_YEAR, annualVariable = variableCost * WEEKS_PER_YEAR;
-        set('kpiCostTotal', `$${Math.round(annualFixed + annualVariable).toLocaleString()}`, '');
+        const annualVehicle = vehicleCostTotal * WEEKS_PER_YEAR;
+        set('kpiCostTotal', `$${Math.round(annualFixed + annualVariable + annualVehicle).toLocaleString()}`, '');
         document.getElementById('kpiCostFixed').textContent = `$${Math.round(annualFixed).toLocaleString()} Alvey + Ruiz (salaried)`;
         document.getElementById('kpiCostVariable').textContent = `$${Math.round(annualVariable).toLocaleString()} Krenek (per hour billed)`;
+        document.getElementById('kpiCostVehicle').textContent = `$${Math.round(annualVehicle).toLocaleString()} vehicle (fuel/insurance/wear)`;
         set('kpiMiles', `${Math.round(totalMiles * WEEKS_PER_YEAR).toLocaleString()} mi`, '');
         set('kpiFlags', totalFlags, totalFlags > 0 ? (openRtuFaults.length > 0 ? 'bad' : 'warn') : 'ok');
 
         // The one number for comparing schedules against each other: production value this
         // schedule actually protects (vs. every down well sitting broken all week) minus what
-        // the whole crew costs to run it. Optimize, drag, or edit rates -- this is what should move.
+        // the whole crew costs to run it -- labor AND the vehicles. Optimize, drag, or edit rates --
+        // this is what should move.
         const recoveredMcf = computeMaxPossibleDeferredMcf() - deferredMcf;
-        const annualNetValue = (recoveredMcf * NATURAL_GAS_PRICE_PER_MCF * WEEKS_PER_YEAR) - (annualFixed + annualVariable);
+        const annualNetValue = (recoveredMcf * NATURAL_GAS_PRICE_PER_MCF * WEEKS_PER_YEAR) - (annualFixed + annualVariable + annualVehicle);
         const sign = annualNetValue < 0 ? '-' : '';
         set('kpiNetValue', `${sign}$${Math.round(Math.abs(annualNetValue)).toLocaleString()}`, annualNetValue >= 0 ? 'ok' : 'bad');
     }

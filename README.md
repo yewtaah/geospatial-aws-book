@@ -61,7 +61,7 @@ Three AWS solutions architects who spent a lot of time together in AWS console s
 
 <br>
 
-| <img src="assets/scott.jpg" width="80" style="border-radius:50%"> | <img src="assets/janahang.jpg" width="80" style="border-radius:50%"> | <img src="assets/jeff.jpg" width="80" style="border-radius:50%"> |
+| <img src="assets/ScottAngeSoUtah.jpg" width="80" style="border-radius:50%"> | <img src="assets/janahang.jpg" width="80" style="border-radius:50%"> | <img src="assets/jeff.jpg" width="80" style="border-radius:50%"> |
 |:---:|:---:|:---:|
 | **Scott Bateman** | **Janahan Gnanachandran** | **Jeff DeMuth** |
 | Energy Innovation Leader, EY — formerly Principal SA, AWS | Principal SA, AWS — Analytics, AI/ML & Sustainability | Solutions Architect, AWS — Geospatial Community |
