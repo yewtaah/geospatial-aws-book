@@ -1015,11 +1015,9 @@
             if (fieldFinishClock > HEAT_CUTOFF_HOUR) flags.push({ cls: 'warn', txt: `Fieldwork runs to ~${clockStr(fieldFinishClock)} — August heat risk` });
             if (naturalHours > 9.5) flags.push({ cls: 'bad', txt: `Overloaded day (${naturalHours.toFixed(1)}h) — likely infeasible` });
             if (techCode === 'KRK' && items.some(w => w.MaintTypeID === 'PM' || w.MaintTypeID === 'INS')) flags.push({ cls: 'warn', txt: `Contractor on routine task — costly at $${t.hourly_rate_usd}/hr` });
-            missedWells.forEach(mw => flags.push({ cls: 'bad', well: mw.wo.EquipID, txt: `Drove within ${mw.distMi.toFixed(1)} mi of shut-in ${mw.wo.EquipID} (${mw.wo.TargetMcfPerDay} Mcf/d) — no SCADA visibility to know` }));
-            items.forEach(w => {
-                const accessMin = siteAccessMinutes(w);
-                if (accessMin >= 6) flags.push({ cls: 'warn', well: w.EquipID, txt: `${w.EquipID} is ~${Math.round(accessMin)} min off the mapped road — unmapped lease access` });
-            });
+            // missedWells (drove blind past a well that's down but scheduled for a different day) is
+            // surfaced as a flag on THAT well's own scheduled day/tech, not here on the day the
+            // near-by drive happened -- see the cross-day pass in recomputeKPIs.
             // Quantified payoff of dispatching straight to known critical work instead of routing
             // through the office first -- matrix-only counterfactual, no extra network call.
             preOfficeWells.forEach(wo => {
@@ -1424,6 +1422,43 @@
                 well: w.EquipID, tech: 'Unassigned', day: '—',
             });
         });
+
+        // Cross-day "should move earlier" flags: a blind commute on one day can pass right by a
+        // well that's down but scheduled for a LATER day. The actionable fix is rescheduling that
+        // well's task earlier, so attach the flag to the well's own scheduled cell/day, not the day
+        // the passing drive happened on -- keep the earliest such opportunity found per well.
+        const crossDayByWell = {};
+        Object.entries(routeMeta).forEach(([key, m]) => {
+            if (!m || m.error || !m.missedWells) return;
+            const sourceDayIdx = parseInt(key.split('_')[1], 10);
+            m.missedWells.forEach(mw => {
+                const existing = crossDayByWell[mw.wo.EquipID];
+                if (!existing || sourceDayIdx < existing.sourceDayIdx) crossDayByWell[mw.wo.EquipID] = { mw, sourceDayIdx };
+            });
+        });
+        const crossFlagsByTargetKey = {};
+        Object.values(crossDayByWell).forEach(({ mw, sourceDayIdx }) => {
+            const wo = mw.wo, sourceDayLabel = DAYS[sourceDayIdx].label;
+            totalFlags++;
+            if (wo.assignedTech != null && wo.assignedDay != null) {
+                const text = `${wo.EquipID} is scheduled for ${DAYS[wo.assignedDay].label}, but a route already passes within ${mw.distMi.toFixed(1)} mi of it on ${sourceDayLabel} — move this task earlier in the week`;
+                complianceFlagDetails.push({ severity: 'bad', text, well: wo.EquipID, tech: techs[wo.assignedTech].driver_name, day: DAYS[wo.assignedDay].label });
+                const targetKey = `${wo.assignedTech}_${wo.assignedDay}`;
+                (crossFlagsByTargetKey[targetKey] = crossFlagsByTargetKey[targetKey] || []).push({ cls: 'bad', well: wo.EquipID, txt: text });
+            } else {
+                complianceFlagDetails.push({
+                    severity: 'bad', well: wo.EquipID, tech: 'Unassigned', day: '—',
+                    text: `${wo.EquipID} is unscheduled, but a route already passes within ${mw.distMi.toFixed(1)} mi of it on ${sourceDayLabel} — schedule it there`,
+                });
+            }
+        });
+        Object.entries(crossFlagsByTargetKey).forEach(([targetKey, extraFlags]) => {
+            const targetMeta = routeMeta[targetKey];
+            if (!targetMeta || targetMeta.error) return;
+            const statsEl = document.getElementById(`stats_${targetKey}`);
+            if (statsEl) statsEl.innerHTML = renderCellStats({ ...targetMeta, flags: [...(targetMeta.flags || []), ...extraFlags] });
+        });
+
         const severityRank = { bad: 0, warn: 1 };
         complianceFlagDetails.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
 
