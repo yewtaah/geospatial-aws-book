@@ -33,6 +33,8 @@
             border-top: 1px solid var(--border); position: sticky; bottom: 0; z-index: 800;
             box-shadow: 0 -8px 20px rgba(0,0,0,.35); }
         .kpi { background: var(--bg-card); padding: .7rem 1rem; }
+        .kpi.kpi-highlight { background: var(--bg-elevated); box-shadow: inset 0 2px 0 var(--sky); }
+        .kpi.kpi-highlight .kpi-val { font-size: 1.4rem; }
         .kpi .kpi-label { font-family: 'Courier New', monospace; font-size: .63rem; letter-spacing: .08em;
             text-transform: uppercase; color: var(--text-muted); margin-bottom: .28rem; }
         .kpi .kpi-val { font-size: 1.2rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -40,6 +42,7 @@
         .kpi .kpi-val.bad { color: var(--bad); }
         .kpi .kpi-val.ok { color: var(--ok); }
         .kpi .kpi-sub { font-size: .68rem; color: var(--text-dim); margin-top: .15rem; }
+        .kpi .kpi-sub .line { display: block; }
 
         .day-tabs { display: flex; gap: .35rem; padding: .75rem 1.75rem; background: var(--bg-surface);
             border-bottom: 1px solid var(--border); overflow-x: auto; }
@@ -187,7 +190,7 @@
         <label class="assump-field"><span>Alvey</span>$<input type="number" id="rateALV" min="0" step="1" onchange="updateTechRate('ALV', this.value)">/hr</label>
         <label class="assump-field"><span>Ruiz</span>$<input type="number" id="rateRUZ" min="0" step="1" onchange="updateTechRate('RUZ', this.value)">/hr</label>
         <label class="assump-field"><span>Krenek</span>$<input type="number" id="rateKRK" min="0" step="1" onchange="updateTechRate('KRK', this.value)">/hr</label>
-        <label class="assump-field"><span>Gas price</span>$<input type="number" id="gasPrice" min="0" step="0.05" onchange="updateGasPrice(this.value)">/Mcf</label>
+        <label class="assump-field"><span>Natural gas price</span>$<input type="number" id="naturalGasPrice" min="0" step="0.05" onchange="updateNaturalGasPrice(this.value)">/Mcf</label>
     </div>
 
     <div class="day-tabs" id="dayTabs"></div>
@@ -234,11 +237,11 @@
     <div class="kpi-row">
         <div class="kpi"><div class="kpi-label">Wells Scheduled</div><div class="kpi-val" id="kpiScheduled">–</div><div class="kpi-sub">of 22 KGFCU wellheads</div></div>
         <div class="kpi"><div class="kpi-label">Critical Backlog</div><div class="kpi-val" id="kpiCritical">–</div><div class="kpi-sub">unscheduled CM / COM</div></div>
-        <div class="kpi"><div class="kpi-label">Deferred Production /yr</div><div class="kpi-val" id="kpiProduction">–</div><div class="kpi-sub" id="kpiProductionSub">gas left in the ground</div></div>
-        <div class="kpi"><div class="kpi-label">Fixed Labor /yr</div><div class="kpi-val" id="kpiCostFixed">–</div><div class="kpi-sub" id="kpiCostSub">Alvey + Ruiz (salaried)</div></div>
-        <div class="kpi"><div class="kpi-label">Variable Labor /yr</div><div class="kpi-val" id="kpiCostVariable">–</div><div class="kpi-sub">Krenek, per hour billed</div></div>
+        <div class="kpi"><div class="kpi-label">Deferred Production /yr</div><div class="kpi-val" id="kpiProduction">–</div><div class="kpi-sub" id="kpiProductionSub">natural gas left in the ground</div></div>
+        <div class="kpi"><div class="kpi-label" id="kpiCostLabel">Total Labor /yr</div><div class="kpi-val" id="kpiCostTotal">–</div><div class="kpi-sub"><span class="line" id="kpiCostFixed">–</span><span class="line" id="kpiCostVariable">–</span></div></div>
         <div class="kpi"><div class="kpi-label">Drive Distance /yr</div><div class="kpi-val" id="kpiMiles">–</div><div class="kpi-sub">all technicians</div></div>
         <div class="kpi"><div class="kpi-label">Compliance Flags</div><div class="kpi-val" id="kpiFlags">–</div><div class="kpi-sub">heat / policy / RTU / cost</div></div>
+        <div class="kpi kpi-highlight"><div class="kpi-label">Net Value /yr</div><div class="kpi-val" id="kpiNetValue">–</div><div class="kpi-sub">production value protected − total labor</div></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -254,7 +257,7 @@
     ];
     const HEAT_CUTOFF_HOUR = 13.5; // 1:30 PM local -- fieldwork finishing after this in August heat gets flagged
     const RTU_REBOOT_MINUTES = 2;  // "sometimes the RTU just needs to be rebooted" -- trivial fix, any technician
-    let GAS_PRICE_PER_MCF = 3.25; // illustrative Henry-Hub-ish price, for a $ read on deferred production -- user-editable
+    let NATURAL_GAS_PRICE_PER_MCF = 3.25; // illustrative Henry-Hub-ish price, for a $ read on deferred production -- user-editable
     const WEEKS_PER_YEAR = 52; // KPI strip annualizes this one representative week's cost/mileage/deferment
 
     // Default seed schedule: EquipID -> [techCode, dayIdx]. Four wells are deliberately left out
@@ -365,7 +368,7 @@
         recomputeAll();
         renderPlaybackTechButtons();
         ['ALV', 'RUZ', 'KRK'].forEach(tc => { document.getElementById(`rate${tc}`).value = techs[tc].hourly_rate_usd; });
-        document.getElementById('gasPrice').value = GAS_PRICE_PER_MCF;
+        document.getElementById('naturalGasPrice').value = NATURAL_GAS_PRICE_PER_MCF;
     }
 
     // Editable assumptions: rates/price change the $ math instantly without re-hitting OSRM --
@@ -385,10 +388,10 @@
         });
         recomputeKPIs();
     }
-    function updateGasPrice(val) {
+    function updateNaturalGasPrice(val) {
         const price = parseFloat(val);
         if (!(price >= 0)) return;
-        GAS_PRICE_PER_MCF = price;
+        NATURAL_GAS_PRICE_PER_MCF = price;
         recomputeKPIs();
     }
 
@@ -1076,7 +1079,7 @@
     }
 
     function updatePendingIndicator() {
-        document.getElementById('kpiCostSub').textContent = pendingRoutes > 0 ? `routing… (${pendingRoutes})` : 'Alvey + Ruiz (salaried)';
+        document.getElementById('kpiCostLabel').textContent = pendingRoutes > 0 ? `Total Labor /yr — routing… (${pendingRoutes})` : 'Total Labor /yr';
     }
 
     function computeAll() {
@@ -1173,6 +1176,15 @@
         return mcf;
     }
 
+    // The worst case for every down well -- never serviced, down the entire week -- is the
+    // ceiling against which "how much did this schedule actually recover" gets measured.
+    function computeMaxPossibleDeferredMcf() {
+        const FULL_WEEK_HOURS = DAYS.length * 24;
+        let mcf = 0;
+        workOrders.forEach(w => { if (isDownTask(w)) mcf += w.TargetMcfPerDay * (FULL_WEEK_HOURS / 24); });
+        return mcf;
+    }
+
     function recomputeKPIs() {
         const scheduled = workOrders.filter(w => w.assignedTech).length;
         const openRepairs = workOrders.filter(w => !w.assignedTech && isDownTask(w));
@@ -1202,12 +1214,22 @@
         const annualMcf = deferredMcf * WEEKS_PER_YEAR;
         set('kpiProduction', `${Math.round(annualMcf).toLocaleString()} Mcf`, annualMcf > 0 ? 'bad' : 'ok');
         document.getElementById('kpiProductionSub').textContent = annualMcf > 0
-            ? `≈ $${Math.round(annualMcf * GAS_PRICE_PER_MCF).toLocaleString()} at $${GAS_PRICE_PER_MCF}/Mcf`
+            ? `≈ $${Math.round(annualMcf * NATURAL_GAS_PRICE_PER_MCF).toLocaleString()} at $${NATURAL_GAS_PRICE_PER_MCF}/Mcf`
             : 'no wells down this week';
-        set('kpiCostFixed', `$${Math.round(fixedCost * WEEKS_PER_YEAR).toLocaleString()}`, '');
-        set('kpiCostVariable', `$${Math.round(variableCost * WEEKS_PER_YEAR).toLocaleString()}`, '');
+        const annualFixed = fixedCost * WEEKS_PER_YEAR, annualVariable = variableCost * WEEKS_PER_YEAR;
+        set('kpiCostTotal', `$${Math.round(annualFixed + annualVariable).toLocaleString()}`, '');
+        document.getElementById('kpiCostFixed').textContent = `$${Math.round(annualFixed).toLocaleString()} Alvey + Ruiz (salaried)`;
+        document.getElementById('kpiCostVariable').textContent = `$${Math.round(annualVariable).toLocaleString()} Krenek (per hour billed)`;
         set('kpiMiles', `${Math.round(totalMiles * WEEKS_PER_YEAR).toLocaleString()} mi`, '');
         set('kpiFlags', totalFlags, totalFlags > 0 ? (openRtuFaults.length > 0 ? 'bad' : 'warn') : 'ok');
+
+        // The one number for comparing schedules against each other: production value this
+        // schedule actually protects (vs. every down well sitting broken all week) minus what
+        // the whole crew costs to run it. Optimize, drag, or edit rates -- this is what should move.
+        const recoveredMcf = computeMaxPossibleDeferredMcf() - deferredMcf;
+        const annualNetValue = (recoveredMcf * NATURAL_GAS_PRICE_PER_MCF * WEEKS_PER_YEAR) - (annualFixed + annualVariable);
+        const sign = annualNetValue < 0 ? '-' : '';
+        set('kpiNetValue', `${sign}$${Math.round(Math.abs(annualNetValue)).toLocaleString()}`, annualNetValue >= 0 ? 'ok' : 'bad');
     }
     </script>
     <footer class="page-footer">

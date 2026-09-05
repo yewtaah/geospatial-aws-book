@@ -115,7 +115,7 @@ Pushes to `main` deploy automatically to GitHub Pages:
 
 *© 2026 Scott Bateman, Janahan Gnanachandran & Jeff DeMuth — Published by Packt*
 
-<img src="assets/ScottBucceeKaty.jpg" alt="Scott at Buc-ee's, Katy TX — the most important gas station in the world" width="300">
+<img src="assets/ScottBucceeKaty.jpg" alt="Scott at Buc-ee's, Katy TX — the most important gasoline station in the world" width="300">
 
 *Mandatory Texas author photo.*
 

@@ -10,6 +10,9 @@
     /* Packt orange — used ONLY for publisher branding */
     --packt:        #e8521a;
 
+    /* "New" highlight — distinct from Packt orange, for calling out fresh content */
+    --new:          #f97316;
+
     /* Backgrounds — deep navy derived from the image's dark zones */
     --bg:           #05080f;
     --bg-surface:   #080d1a;
@@ -241,6 +244,18 @@ body {
     border-color: var(--sky);
     color: var(--sky);
     background: rgba(14, 165, 233, 0.06);
+}
+
+.btn-highlight {
+    background: transparent;
+    color: var(--new);
+    border-color: var(--new);
+}
+
+.btn-highlight:hover {
+    border-color: var(--new);
+    color: #030810;
+    background: var(--new);
 }
 
 .btn-small { padding: 0.4rem 0.9rem; font-size: 0.78rem; }
@@ -500,6 +515,26 @@ body {
 
 .playground-card:hover::before,
 .resource-card:hover::before { background: var(--sky); }
+
+.playground-card.is-new::before,
+.playground-card.is-new:hover::before { background: var(--new); }
+
+.playground-card.is-new h3 { color: var(--new); }
+
+.new-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.5rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--new);
+    border: 1px solid var(--new);
+    border-radius: 3px;
+    vertical-align: middle;
+}
 
 .card-label {
     font-family: 'Courier New', monospace;
