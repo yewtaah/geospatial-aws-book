@@ -1432,8 +1432,13 @@
             if (!m || m.error || !m.missedWells) return;
             const sourceDayIdx = parseInt(key.split('_')[1], 10);
             m.missedWells.forEach(mw => {
-                const existing = crossDayByWell[mw.wo.EquipID];
-                if (!existing || sourceDayIdx < existing.sourceDayIdx) crossDayByWell[mw.wo.EquipID] = { mw, sourceDayIdx };
+                const wo = mw.wo;
+                // Only a genuine head start if the passing drive happened on a day strictly before
+                // the well's own scheduled day -- a different tech's commute on the SAME day (e.g.
+                // both on Monday) isn't a "move it earlier" opportunity, there's nowhere earlier to go.
+                if (wo.assignedDay != null && sourceDayIdx >= wo.assignedDay) return;
+                const existing = crossDayByWell[wo.EquipID];
+                if (!existing || sourceDayIdx < existing.sourceDayIdx) crossDayByWell[wo.EquipID] = { mw, sourceDayIdx };
             });
         });
         const crossFlagsByTargetKey = {};
