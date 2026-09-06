@@ -269,6 +269,14 @@
                     <span class="op-icon">🏛</span>
                     <span class="op-info"><span class="op-name">US Counties</span><span class="op-desc">25 polygon features</span></span>
                 </button>
+                <button id="btn-compressor_stations" class="opt-btn" onclick="selectDataset('compressor_stations', this)">
+                    <span class="op-icon">⛽</span>
+                    <span class="op-info"><span class="op-name">NG Compressor Stations</span><span class="op-desc">loading…</span></span>
+                </button>
+                <button id="btn-wind_turbines" class="opt-btn" onclick="selectDataset('wind_turbines', this)">
+                    <span class="op-icon">🌬</span>
+                    <span class="op-info"><span class="op-name">US Wind Turbines</span><span class="op-desc">loading…</span></span>
+                </button>
             </div>
 
             <div class="ctrl-section">
@@ -355,6 +363,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <script>
     // ── Datasets ──────────────────────────────────────────────────────────────
     const DATASETS = {
@@ -424,6 +433,23 @@
                 {type:'Feature',properties:{name:'Jefferson',state:'CO',region:'Mountain',pop:582881},geometry:{type:'Polygon',coordinates:[[[-105.65,39.41],[-105.08,39.41],[-105.08,39.89],[-105.65,39.89],[-105.65,39.41]]]}}
             ]}
         },
+        // Real energy-sector infrastructure -- already shipped under data/ but never wired into
+        // any playground until now. CSV-sourced (see loadExternalDataset's csv branch), sampled
+        // down from their true size (2.3k / ~65k rows) to a scale comparable to the other point
+        // dataset here (cities, 30 features) -- Turf's dissolve/voronoi are O(n log n) or worse,
+        // and a teaching demo should stay responsive, not churn on a full national dataset.
+        compressor_stations: {
+            label: 'NG Compressor Stations',
+            csvUrl: '../data/NG_CompressorStations.csv', latF: 'LATITUDE', lonF: 'LONGITUDE', sampleTo: 200,
+            toProps: r => ({ name: r.NAME, operator: r.OPERATOR, status: r.STATUS, county: r.COUNTY, state: r.STATE }),
+            geojson: { type: 'FeatureCollection', features: [] },
+        },
+        wind_turbines: {
+            label: 'US Wind Turbines',
+            csvUrl: '../data/USWindTurbines.csv', latF: 'ylat', lonF: 'xlong', sampleTo: 200,
+            toProps: r => ({ project: r.p_name, manufacturer: r.t_manu, capacity_kw: r.t_cap, year: r.p_year, state: r.t_state }),
+            geojson: { type: 'FeatureCollection', features: [] },
+        },
         regions: {
             label: 'US Regions',
             geojson: { type:'FeatureCollection', features:[
@@ -441,10 +467,29 @@
         }
     };
 
-    // Helper: load external dataset (with localStorage caching)
+    // Uniformly thin a large CSV by fixed stride so the sample still spans the whole country
+    // instead of just however the source file happens to be sorted (see map-viz.html's same helper).
+    function sampleRows(rows, sampleTo) {
+        if (!sampleTo || rows.length <= sampleTo) return rows;
+        const stride = Math.ceil(rows.length / sampleTo);
+        return rows.filter((_, i) => i % stride === 0);
+    }
+
+    function csvRowsToGeoJSON(rows, ds) {
+        const features = [];
+        for (const row of sampleRows(rows, ds.sampleTo)) {
+            const lat = parseFloat(row[ds.latF]), lon = parseFloat(row[ds.lonF]);
+            if (!isFinite(lat) || !isFinite(lon)) continue;
+            features.push({ type: 'Feature', properties: ds.toProps(row), geometry: { type: 'Point', coordinates: [lon, lat] } });
+        }
+        return { type: 'FeatureCollection', features };
+    }
+
+    // Helper: load external dataset (with localStorage caching) -- either a GeoJSON URL or a local
+    // CSV (ds.csvUrl) converted + sampled down to a Turf-friendly point FeatureCollection.
     async function loadExternalDataset(key) {
         const ds = DATASETS[key];
-        if (!ds || !ds.url) return ds;
+        if (!ds || !(ds.url || ds.csvUrl)) return ds;
         const cacheKey = 'dataset_' + key;
         // return if already loaded in memory
         if (ds._loaded) return ds;
@@ -463,17 +508,24 @@
 
         setStatus('Loading full ' + ds.label + ' dataset…', false);
         try {
-            const resp = await fetch(ds.url);
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            const text = await resp.text();
-            const parsed = JSON.parse(text);
+            let parsed;
+            if (ds.csvUrl) {
+                const rows = await new Promise((resolve, reject) => Papa.parse(ds.csvUrl, {
+                    download: true, header: true, skipEmptyLines: true,
+                    complete: r => resolve(r.data), error: reject,
+                }));
+                parsed = csvRowsToGeoJSON(rows, ds);
+            } else {
+                const resp = await fetch(ds.url);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                parsed = JSON.parse(await resp.text());
+            }
             ds.geojson = parsed;
             ds._loaded = true;
             // attempt to cache if reasonably sized (<4.5MB)
             try {
-                if (text.length < 4.5 * 1024 * 1024) {
-                    localStorage.setItem(cacheKey, JSON.stringify(parsed));
-                }
+                const serialized = JSON.stringify(parsed);
+                if (serialized.length < 4.5 * 1024 * 1024) localStorage.setItem(cacheKey, serialized);
             } catch(e) { console.warn('cache write failed', e); }
             updateDatasetButtonCount(key);
             setStatus('', false);
@@ -655,9 +707,10 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
 
     // ── Map ────────────────────────────────────────────────────────────────────
     const map = L.map('map').setView([39, -98], 4);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OSM contributors © CARTO',
-        subdomains: 'abcd',
+    // CARTO's free anonymous tiles now require an API key (renders "API KEY REQUIRED" watermarks) --
+    // Esri's Dark Gray Canvas is the free, keyless equivalent for the same cartographic style.
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri',
         maxZoom: 19
     }).addTo(map);
 
@@ -841,7 +894,7 @@ result.to_file(<span class="str">"/tmp/voronoi.geojson"</span>)`;
         clearOutput();
 
         // load external dataset if configured
-        if (DATASETS[key] && DATASETS[key].url) {
+        if (DATASETS[key] && (DATASETS[key].url || DATASETS[key].csvUrl)) {
             await loadExternalDataset(key);
         }
 
