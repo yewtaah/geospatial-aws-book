@@ -1778,19 +1778,24 @@
         const openRepairs = workOrders.filter(w => !w.assignedTech && isDownTask(w));
         const openRtuFaults = openRepairs.filter(w => w.MaintTypeID === 'COM');
 
-        // Fixed labor = the two salaried employees: Hilcorp pays for their scheduled hours (padded
-        // to a full shift under the office policy) whether or not that time is fully productive.
+        // Fixed labor = the two salaried employees: Hilcorp pays them a full 8-hour day every
+        // business day this week regardless of whether they're given any wells at all -- that's
+        // what "fixed cost" means. It does NOT come from summing scheduled/routed hours (a day
+        // with nothing assigned would otherwise silently cost $0, making an idle employee look
+        // like a free lunch when they're actually the same sunk cost as a fully-loaded one).
         // Variable labor = the contractor: strictly pay-for-what-you-use, so it scales directly
         // with how much work actually gets routed to him. Splitting them is the point -- it's what
         // shows whether shifting work to the contractor is actually cheaper, not just "different."
-        let fixedCost = 0, variableCost = 0, vehicleCostTotal = 0, totalMiles = 0, totalFlags = 0;
+        const fixedCost = Object.values(techs)
+            .filter(t => t.employment_type !== 'contractor')
+            .reduce((s, t) => s + t.hourly_rate_usd * 8 * DAYS.length, 0);
+        let variableCost = 0, vehicleCostTotal = 0, totalMiles = 0, totalFlags = 0;
         complianceFlagDetails = [];
         Object.entries(routeMeta).forEach(([key, m]) => {
             if (!m || m.error) return;
             const [tc, dayIdxStr] = key.split('_');
             const dayIdx = parseInt(dayIdxStr, 10);
             if (techs[tc].employment_type === 'contractor') variableCost += m.cost || 0;
-            else fixedCost += m.cost || 0;
             vehicleCostTotal += m.vehicleCost || 0;
             totalMiles += m.distanceMi || 0;
             (m.flags || []).forEach(f => {
