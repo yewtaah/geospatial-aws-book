@@ -228,6 +228,10 @@
                 </div>
 
                 <div class="palette-group-label">Geospatial</div>
+                <div class="palette-item" draggable="true" data-type="stac" data-icon="🛰" data-name="STAC Catalog" data-sub="Satellite scene index">
+                    <span class="item-icon">🛰</span>
+                    <div><span class="item-label">STAC Catalog</span><span class="item-sub">Satellite scene index</span></div>
+                </div>
                 <div class="palette-item" draggable="true" data-type="location" data-icon="📍" data-name="Location Service" data-sub="Geocoding / routing">
                     <span class="item-icon">📍</span>
                     <div><span class="item-label">Location Service</span><span class="item-sub">Geocoding / routing</span></div>
@@ -289,17 +293,22 @@
     let nodeIdCounter = 0;
 
     // ── Props templates ───────────────────────────────────────────────────────
+    // Defaults reference real names used elsewhere on this site (data/catalog.json's S3 bucket,
+    // the Field Operator Efficiency playground's KGFCU field, and the actual public STAC endpoint
+    // the Satellite Imagery playground reads from) -- so a first-time visitor sees this tool tied
+    // to the book's real content, not generic placeholder AWS.
     const NODE_PROPS = {
-        s3:         { fields: [{ label: 'Bucket Name', key: 'bucket', value: 'my-geo-data' }, { label: 'Prefix', key: 'prefix', value: 'raw/' }, { label: 'Format', key: 'format', type: 'select', options: ['GeoJSON','COG','Parquet','CSV','Shapefile'], value: 'GeoJSON' }], code: (p) => `aws s3 ls s3://${p.bucket}/${p.prefix}` },
+        s3:         { fields: [{ label: 'Bucket Name', key: 'bucket', value: 'geospatial-on-aws' }, { label: 'Prefix', key: 'prefix', value: 'sentinel-2/raw/' }, { label: 'Format', key: 'format', type: 'select', options: ['GeoJSON','COG','Parquet','CSV','Shapefile'], value: 'COG' }], code: (p) => `aws s3 ls s3://${p.bucket}/${p.prefix}` },
         kinesis:    { fields: [{ label: 'Stream Name', key: 'stream', value: 'geo-events' }, { label: 'Shards', key: 'shards', value: '4' }], code: (p) => `aws kinesis describe-stream --stream-name ${p.stream}` },
-        lambda:     { fields: [{ label: 'Function Name', key: 'name', value: 'process-geo-data' }, { label: 'Runtime', key: 'runtime', type: 'select', options: ['python3.12','nodejs20.x','java21'], value: 'python3.12' }, { label: 'Memory (MB)', key: 'mem', value: '1024' }], code: (p) => `aws lambda invoke --function-name ${p.name} out.json` },
-        glue:       { fields: [{ label: 'Job Name', key: 'name', value: 'spatial-etl' }, { label: 'Worker Type', key: 'worker', type: 'select', options: ['G.1X','G.2X','G.4X'], value: 'G.2X' }, { label: 'Workers', key: 'count', value: '10' }], code: (p) => `aws glue start-job-run --job-name ${p.name}` },
+        stac:       { fields: [{ label: 'Catalog URL', key: 'url', value: 'https://earth-search.aws.element84.com/v1' }, { label: 'Collection', key: 'collection', value: 'sentinel-2-l2a' }, { label: 'Max Cloud Cover %', key: 'cloud', value: '5' }], code: (p) => `curl -X POST ${p.url}/search \\\n  -d '{"collections":["${p.collection}"],"query":{"eo:cloud_cover":{"lt":${p.cloud}}}}'` },
+        lambda:     { fields: [{ label: 'Function Name', key: 'name', value: 'compute-ndvi' }, { label: 'Runtime', key: 'runtime', type: 'select', options: ['python3.12','nodejs20.x','java21'], value: 'python3.12' }, { label: 'Memory (MB)', key: 'mem', value: '1024' }], code: (p) => `aws lambda invoke --function-name ${p.name} out.json` },
+        glue:       { fields: [{ label: 'Job Name', key: 'name', value: 'sentinel2-ndvi-etl' }, { label: 'Worker Type', key: 'worker', type: 'select', options: ['G.1X','G.2X','G.4X'], value: 'G.2X' }, { label: 'Workers', key: 'count', value: '10' }], code: (p) => `aws glue start-job-run --job-name ${p.name}` },
         emr:        { fields: [{ label: 'Cluster Name', key: 'name', value: 'geo-spark' }, { label: 'Instance Type', key: 'instance', value: 'r5.2xlarge' }, { label: 'Core Nodes', key: 'nodes', value: '4' }], code: (p) => `aws emr create-cluster --name "${p.name}"` },
-        location:   { fields: [{ label: 'Map Name', key: 'map', value: 'GeoMap' }, { label: 'Data Provider', key: 'provider', type: 'select', options: ['Esri','HERE','Grab'], value: 'Esri' }], code: (p) => `aws location get-map-tile --map-name ${p.map}` },
+        location:   { fields: [{ label: 'Map Name', key: 'map', value: 'KGFCU-Field-Map' }, { label: 'Data Provider', key: 'provider', type: 'select', options: ['Esri','HERE','GrabMaps'], value: 'Esri' }], code: (p) => `aws location get-map-tile --map-name ${p.map}` },
         sagemaker:  { fields: [{ label: 'Endpoint Name', key: 'ep', value: 'geo-ml-endpoint' }, { label: 'Instance Type', key: 'instance', value: 'ml.m5.xlarge' }], code: (p) => `aws sagemaker describe-endpoint --endpoint-name ${p.ep}` },
-        athena:     { fields: [{ label: 'Workgroup', key: 'wg', value: 'geo-queries' }, { label: 'Output Bucket', key: 'bucket', value: 's3://my-athena-output/' }], code: (p) => `aws athena start-query-execution --work-group ${p.wg}` },
+        athena:     { fields: [{ label: 'Workgroup', key: 'wg', value: 'geo-queries' }, { label: 'Output Bucket', key: 'bucket', value: 's3://geospatial-on-aws/athena-results/' }], code: (p) => `aws athena start-query-execution --work-group ${p.wg}` },
         redshift:   { fields: [{ label: 'Cluster ID', key: 'cluster', value: 'geo-warehouse' }, { label: 'Database', key: 'db', value: 'geodata' }], code: (p) => `aws redshift describe-clusters --cluster-identifier ${p.cluster}` },
-        quicksight: { fields: [{ label: 'Dashboard ID', key: 'dash', value: 'geo-dashboard' }, { label: 'Account ID', key: 'acct', value: '123456789012' }], code: (p) => `aws quicksight describe-dashboard --aws-account-id ${p.acct} --dashboard-id ${p.dash}` },
+        quicksight: { fields: [{ label: 'Dashboard ID', key: 'dash', value: 'ndvi-field-health' }, { label: 'Account ID', key: 'acct', value: '123456789012' }], code: (p) => `aws quicksight describe-dashboard --aws-account-id ${p.acct} --dashboard-id ${p.dash}` },
     };
 
     // ── Drop handler ──────────────────────────────────────────────────────────
@@ -507,18 +516,25 @@
         document.getElementById('propsFields').innerHTML = '<p class="props-empty">No node selected.</p>';
     }
 
+    // The book's actual satellite-imagery pattern: a STAC catalog picks the scene, raw COGs land
+    // in S3, Lambda computes band math (the same NDVI/NDWI/etc. the Satellite Imagery playground
+    // does client-side), Glue joins that against the field's own well/production data, Athena
+    // queries the joined result, and QuickSight is the field-health dashboard on top.
     function loadExample() {
         clearCanvas();
-        const n1 = createNode('s3',       '🪣', 'S3 Bucket',       60,  80);
-        const n2 = createNode('lambda',   'λ',  'Lambda Function', 260, 80);
-        const n3 = createNode('glue',     '⚙️', 'AWS Glue Job',    460, 80);
-        const n4 = createNode('athena',   '🔍', 'Athena',          460, 220);
-        const n5 = createNode('quicksight','📊','QuickSight',       660, 220);
+        const n1 = createNode('stac',      '🛰', 'STAC Catalog',    40,  140);
+        const n2 = createNode('s3',        '🪣', 'S3 Bucket',       260, 140);
+        const n3 = createNode('lambda',    'λ',  'Lambda Function', 480, 60);
+        const n4 = createNode('glue',      '⚙️', 'AWS Glue Job',    480, 220);
+        const n5 = createNode('athena',    '🔍', 'Athena',          700, 140);
+        const n6 = createNode('quicksight','📊', 'QuickSight',      920, 140);
         connections = [
             { from: n1.id, to: n2.id },
             { from: n2.id, to: n3.id },
-            { from: n3.id, to: n4.id },
+            { from: n2.id, to: n4.id },
+            { from: n3.id, to: n5.id },
             { from: n4.id, to: n5.id },
+            { from: n5.id, to: n6.id },
         ];
         drawConnections();
         document.getElementById('canvasHint').style.display = 'none';
