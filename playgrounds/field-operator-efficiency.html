@@ -1673,12 +1673,12 @@
         // no network call, so trying every (tech, day) combination for every work order is instant.
         const projectedHoursWith = (tc, d, w) => estimateHoursFromMatrix(tc, [...(assigned[key(tc, d)] || []), w], policyOn);
         // With the 8-hr office policy enforced, don't plan a day past the shift it's meant to fit
-        // in. With it off there's no fixed shift to respect, so keep the looser physical ceiling.
+        // in. With it off there's no fixed shift to respect, so allow a genuinely long field day.
         // The margin absorbs OSRM's Table API (the precomputed MATRIX travelCost reads from)
         // running slightly faster than its turn-by-turn Route API -- the real route computeCellRoute
         // fetches afterward -- so an estimate that just clears the cap doesn't end up over it for real.
         const CAPACITY_ESTIMATE_MARGIN = 0.5;
-        const CAPACITY_HOURS = (policyOn ? 8.0 : 9.0) - CAPACITY_ESTIMATE_MARGIN;
+        const CAPACITY_HOURS = (policyOn ? 8.0 : 12.0) - CAPACITY_ESTIMATE_MARGIN;
 
         const priority = workOrders.filter(w => w.assignedDay == null).sort((a, b) => {
             const rank = w => w.MaintTypeID === 'COM' ? 0 : w.MaintTypeID === 'CM' ? 1 : 2;
