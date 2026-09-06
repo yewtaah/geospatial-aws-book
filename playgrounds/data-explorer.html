@@ -352,7 +352,7 @@
             <div class="chapter-tag">Chapters 3 – 4</div>
             <h2 style="font-size:1rem;font-weight:700;color:#f0f6fc;margin-top:0.3rem;">Data Explorer</h2>
             <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.3rem;line-height:1.5;">
-                Inspect sample datasets used throughout the book. View on map, browse the schema, and download for your own AWS workflows.
+                A deeper look at the same sample datasets on the <a href="../data-samples.html" style="color:var(--sky);">Data Samples</a> page — sortable/searchable table, raw GeoJSON/CSV view, and map sync that page doesn't have.
             </p>
         </div>
 
@@ -498,8 +498,8 @@ const DATASETS = {
         }
     },
     stadiums: {
-        url: 'https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv',
-        dlHref: 'https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv',
+        url: '../data/stadiums.csv',
+        dlHref: '../data/stadiums.csv',
         dlName: 'stadiums.csv',
         dlMeta: 'CSV · 151 venues · EPSG:4326',
         features: '151', format: 'CSV', crs: '4326', size: '~8 KB',
@@ -549,9 +549,10 @@ const LEAGUE_COLOR = {
 
 // ── Map ───────────────────────────────────────────────────────────────────────
 const map = L.map('map').setView([38, -96], 4);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OSM contributors © CARTO',
-    subdomains: 'abcd', maxZoom: 19
+// CARTO's free anonymous tiles now require an API key (renders "API KEY REQUIRED" watermarks) --
+// Esri's Dark Gray Canvas is the free, keyless equivalent for the same cartographic style.
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri', maxZoom: 19
 }).addTo(map);
 
 function popColor(pop) {
