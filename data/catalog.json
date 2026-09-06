@@ -11,7 +11,7 @@
       "features": 151,
       "source": "MLB, NFL, NBA, NHL, MLS / Manually compiled",
       "chapter": "Chapter 3",
-      "url": "https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv",
+      "url": "data/stadiums.csv",
       "latField": "Lat",
       "lonField": "Long",
       "bbox": [-125, 25, -70, 50]

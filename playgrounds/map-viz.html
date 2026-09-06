@@ -147,8 +147,8 @@
             <div class="control-group">
                 <label>Base Map Style</label>
                 <div class="style-options">
-                    <button class="style-btn active" data-style="dark" onclick="setBaseMap('dark', this)">Dark (CartoDB Dark Matter)</button>
-                    <button class="style-btn" data-style="light" onclick="setBaseMap('light', this)">Light (CartoDB Positron)</button>
+                    <button class="style-btn active" data-style="dark" onclick="setBaseMap('dark', this)">Dark (Esri Canvas)</button>
+                    <button class="style-btn" data-style="light" onclick="setBaseMap('light', this)">Light (Esri Canvas)</button>
                     <button class="style-btn" data-style="osm" onclick="setBaseMap('osm', this)">OpenStreetMap</button>
                     <button class="style-btn" data-style="topo" onclick="setBaseMap('topo', this)">Topo (ESRI)</button>
                 </div>
@@ -181,9 +181,11 @@
             <div class="control-group">
                 <label>Sample Layer</label>
                 <div class="style-options">
-                    <button class="style-btn active" onclick="loadLayer('states', this)">US States</button>
-                    <button class="style-btn" onclick="loadLayer('grid', this)">Grid / Fishnet</button>
-                    <button class="style-btn" onclick="loadLayer('points', this)">Random Points</button>
+                    <button class="style-btn active" onclick="loadLayer('states', this)">US States (Census TIGER)</button>
+                    <button class="style-btn" onclick="loadLayer('compressor_stations', this)">NG Compressor Stations</button>
+                    <button class="style-btn" onclick="loadLayer('wind_turbines', this)">US Wind Turbines (USWTDB)</button>
+                    <button class="style-btn" onclick="loadLayer('fuel_stations', this)">EV / Alt-Fuel Stations</button>
+                    <button class="style-btn" onclick="loadLayer('co_transmission', this)">CO Transmission Lines</button>
                     <button class="style-btn" onclick="loadLayer('stadiums', this)">Stadiums · 5 leagues</button>
                     <button class="style-btn" onclick="loadLayer('texas_wells', this)">Texas Wells (RRC)</button>
                     <button class="style-btn" onclick="loadLayer('utah_wells', this)">Utah Oil &amp; Gas Wells</button>
@@ -208,9 +210,12 @@
     let currentLayerType = 'states';
 
     // ── Tile layers ───────────────────────────────────────────────────────────
+    // CARTO's free anonymous basemap tiles now require an account/API key (they'll render but
+    // plaster "API KEY REQUIRED" across every tile) -- ESRI's Canvas services are the free,
+    // keyless equivalent for the same dark/light cartographic style.
     const TILES = {
-        dark:  { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attr: '© OSM contributors © CARTO' },
-        light: { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attr: '© OSM contributors © CARTO' },
+        dark:  { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' },
+        light: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' },
         osm:   { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors' },
         topo:  { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' }
     };
@@ -223,57 +228,51 @@
         return { color: currentColor, fillColor: currentColor, fillOpacity: currentOpacity, weight: currentWeight };
     }
 
-    function makeGrid() {
-        const features = [];
-        for (let lat = 25; lat < 50; lat += 5) {
-            for (let lon = -125; lon < -65; lon += 5) {
-                features.push({
-                    type: 'Feature',
-                    geometry: { type: 'Polygon', coordinates: [[[lon,lat],[lon+5,lat],[lon+5,lat+5],[lon,lat+5],[lon,lat]]] },
-                    properties: { cell: `${lat},${lon}`, area_km2: Math.round(Math.random() * 80000 + 20000) }
-                });
-            }
-        }
-        return { type: 'FeatureCollection', features };
+    // ── Real US state boundaries (Census TIGER, via the same S3 mirror US_Counties.geojson
+    // uses in the Spatial Processing playground) -- fetched once, held in memory only (at ~13MB
+    // it's too big to reliably round-trip through localStorage, unlike the smaller CSV layers below).
+    const STATES_URL = 'https://geospatial-on-aws.s3.amazonaws.com/data/Municipal%20Boundaries/US_States.geojson';
+    let statesGeoJSON = null;
+    async function loadStatesGeoJSON() {
+        if (statesGeoJSON) return statesGeoJSON;
+        const res = await fetch(STATES_URL);
+        statesGeoJSON = await res.json();
+        return statesGeoJSON;
     }
 
-    function makePoints(n = 120) {
-        const features = [];
-        for (let i = 0; i < n; i++) {
-            const lat = 25 + Math.random() * 24;
-            const lon = -125 + Math.random() * 60;
-            features.push({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [lon, lat] },
-                properties: { id: i + 1, value: Math.round(Math.random() * 1000) }
-            });
-        }
-        return { type: 'FeatureCollection', features };
-    }
-
-    // Simplified US states outline (convex hull approximation for demo)
-    const US_STATES_APPROX = { type: 'FeatureCollection', features: [
-        { type: 'Feature', properties: { name: 'Pacific NW' }, geometry: { type: 'Polygon', coordinates: [[[-124,46],[-116,46],[-116,49],[-124,49],[-124,46]]] } },
-        { type: 'Feature', properties: { name: 'California' }, geometry: { type: 'Polygon', coordinates: [[[-124,32],[-114,32],[-114,42],[-124,42],[-124,32]]] } },
-        { type: 'Feature', properties: { name: 'Mountain West' }, geometry: { type: 'Polygon', coordinates: [[[-116,37],[-104,37],[-104,42],[-116,42],[-116,37]]] } },
-        { type: 'Feature', properties: { name: 'Southwest' }, geometry: { type: 'Polygon', coordinates: [[[-117,31],[-103,31],[-103,37],[-117,37],[-117,31]]] } },
-        { type: 'Feature', properties: { name: 'Great Plains' }, geometry: { type: 'Polygon', coordinates: [[[-104,37],[-96,37],[-96,49],[-104,49],[-104,37]]] } },
-        { type: 'Feature', properties: { name: 'Midwest' }, geometry: { type: 'Polygon', coordinates: [[[-96,36],[-84,36],[-84,47],[-96,47],[-96,36]]] } },
-        { type: 'Feature', properties: { name: 'South' }, geometry: { type: 'Polygon', coordinates: [[[-97,25],[-81,25],[-81,37],[-97,37],[-97,25]]] } },
-        { type: 'Feature', properties: { name: 'Southeast' }, geometry: { type: 'Polygon', coordinates: [[[-87,24],[-80,24],[-80,35],[-87,35],[-87,24]]] } },
-        { type: 'Feature', properties: { name: 'Mid-Atlantic' }, geometry: { type: 'Polygon', coordinates: [[[-84,36],[-74,36],[-74,45],[-84,45],[-84,36]]] } },
-        { type: 'Feature', properties: { name: 'Northeast' }, geometry: { type: 'Polygon', coordinates: [[[-79,40],[-67,40],[-67,47],[-79,47],[-79,40]]] } },
-    ]};
-
-    // ── CSV dataset config ────────────────────────────────────────────────────
+    // ── Real energy/utilities infrastructure, from the same local datasets the book ships
+    // under data/ but that nothing on the site previously loaded. Point layers share the
+    // existing CSV_LAYERS shape (latF/lonF/popupFields/bbox); `sampleTo` uniformly thins a
+    // large national file down to a size the map can render smoothly without losing its
+    // nationwide spread (first-N would just show whichever state happens to sort first).
     const CSV_LAYERS = {
-        stadiums:    { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/stadiums.csv',               latF: 'Lat',       lonF: 'Long',      limit: null, popupFields: ['Team','League','Division'],                    bbox: [[25,-125],[55,-65]]       },
-        texas_wells: { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Energy/TexasWells.csv',      latF: 'Latitude',  lonF: 'Longitude', limit: 5000, popupFields: ['WellName','Operator','ZoneStatus','County'],  bbox: [[25.8,-106.7],[36.5,-93.5]] },
-        utah_wells:  { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Energy/UtahOilGasWellsMB.csv', latF: 'Latitude', lonF: 'Longitude', limit: 5000, popupFields: ['WellName','Operator','WellStatus','County'], bbox: [[36.9,-114.1],[42.0,-109.0]] },
+        stadiums:             { url: '../data/stadiums.csv',                                                        latF: 'Lat',       lonF: 'Long',      limit: null, popupFields: ['Team','League','Division'],                       bbox: [[25,-125],[55,-65]] },
+        texas_wells:          { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Energy/TexasWells.csv',       latF: 'Latitude',  lonF: 'Longitude', limit: 5000, popupFields: ['WellName','Operator','ZoneStatus','County'],     bbox: [[25.8,-106.7],[36.5,-93.5]] },
+        utah_wells:           { url: 'https://geospatial-on-aws.s3.amazonaws.com/data/Energy/UtahOilGasWellsMB.csv', latF: 'Latitude', lonF: 'Longitude', limit: 5000, popupFields: ['WellName','Operator','WellStatus','County'],     bbox: [[36.9,-114.1],[42.0,-109.0]] },
+        compressor_stations:  { url: '../data/NG_CompressorStations.csv',    latF: 'LATITUDE', lonF: 'LONGITUDE', popupFields: ['NAME','OPERATOR','STATUS','COUNTY','STATE'],      bbox: [[24,-125],[55,-65]] },
+        wind_turbines:        { url: '../data/USWindTurbines.csv',           latF: 'ylat',     lonF: 'xlong',     popupFields: ['p_name','t_manu','t_model','t_cap','p_year'],     bbox: [[24,-125],[50,-65]], sampleTo: 3000 },
+        fuel_stations:        { url: '../data/ChargeFuelStations.csv',       latF: 'latitude', lonF: 'longitude', popupFields: ['station_name','fuel_type','city','state','ev_network'], bbox: [[19,-166],[65,-65]], sampleTo: 3000 },
     };
     const csvCache = {};
 
-    const STATIC_LAYERS = new Set(['states', 'grid', 'points']);
+    // Colorado transmission lines ship as an ArcGIS FeatureSet export (paths in EPSG:3857 web
+    // mercator meters), not GeoJSON -- convert with the standard closed-form inverse mercator
+    // formula rather than pulling in a full projection library for one dataset.
+    const CO_TRANSMISSION_URL = '../data/CO_Electric_Transmission_Lines.json';
+    let coTransmissionCache = null;
+    function webMercatorToLngLat([x, y]) {
+        const R = 20037508.34;
+        return [x / R * 180, (Math.atan(Math.exp(y / R * Math.PI)) * 2 - Math.PI / 2) * 180 / Math.PI];
+    }
+    async function loadCoTransmission() {
+        if (coTransmissionCache) return coTransmissionCache;
+        const res = await fetch(CO_TRANSMISSION_URL);
+        const json = await res.json();
+        coTransmissionCache = json.features.map(f => f.geometry.paths.map(path => path.map(webMercatorToLngLat)));
+        return coTransmissionCache;
+    }
+
+    const REMOTE_LAYERS = new Set(['states', 'co_transmission']);
 
     function loadLayer(type, btn) {
         document.querySelectorAll('.pg-controls .style-btn').forEach(b => {
@@ -281,38 +280,60 @@
         });
         if (btn) btn.classList.add('active');
         currentLayerType = type;
-        if (STATIC_LAYERS.has(type)) {
-            rebuildLayer();
-        } else {
-            loadCSVLayer(type);
-        }
+        if (type === 'states') loadStatesLayer();
+        else if (type === 'co_transmission') loadTransmissionLayer();
+        else loadCSVLayer(type);
     }
 
     function rebuildLayer() {
+        if (currentLayerType === 'states') return loadStatesLayer();
+        if (currentLayerType === 'co_transmission') return loadTransmissionLayer();
+    }
+
+    async function loadStatesLayer() {
+        const loader = document.getElementById('csv-loading');
+        loader.style.display = 'block'; loader.textContent = 'Loading…';
+        const geojson = await loadStatesGeoJSON();
+        loader.style.display = 'none';
+        if (currentLayerType !== 'states') return; // user switched layers while this was in flight
         if (currentLayer) { map.removeLayer(currentLayer); currentLayer = null; }
         const style = getStyle();
-        let geojson;
-        if (currentLayerType === 'states') geojson = US_STATES_APPROX;
-        else if (currentLayerType === 'grid') geojson = makeGrid();
-        else geojson = makePoints();
-
         currentLayer = L.geoJSON(geojson, {
             style: () => style,
-            pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, ...style }),
-            onEachFeature: (f, layer) => {
-                const entries = Object.entries(f.properties || {}).map(([k,v]) => `<div><b>${k}:</b> ${v}</div>`).join('');
-                layer.bindPopup(entries || 'No properties');
-            }
+            onEachFeature: (f, layer) => layer.bindPopup(`<b>${f.properties.NAME}</b> (${f.properties.STUSPS})<br>Land area: ${Math.round(f.properties.ALAND / 2589988).toLocaleString()} sq mi`),
         }).addTo(map);
+    }
+
+    async function loadTransmissionLayer() {
+        const loader = document.getElementById('csv-loading');
+        loader.style.display = 'block'; loader.textContent = 'Loading…';
+        const paths = await loadCoTransmission();
+        loader.style.display = 'none';
+        if (currentLayerType !== 'co_transmission') return;
+        if (currentLayer) { map.removeLayer(currentLayer); currentLayer = null; }
+        const style = getStyle();
+        const lines = paths.map(segments => L.polyline(segments.map(seg => seg.map(([lng, lat]) => [lat, lng])), { ...style, fill: false })
+            .bindPopup('Colorado electric transmission line segment'));
+        currentLayer = L.layerGroup(lines).addTo(map);
+        map.fitBounds([[36.9, -109.1], [41.0, -102.0]], { padding: [20, 20] });
+    }
+
+    // Uniformly thin a large national CSV down to `sampleTo` rows by fixed stride, so the sample
+    // still spans the whole country instead of just however the source file happens to be sorted.
+    function sampleRows(rows, sampleTo) {
+        if (!sampleTo || rows.length <= sampleTo) return rows;
+        const stride = Math.ceil(rows.length / sampleTo);
+        return rows.filter((_, i) => i % stride === 0);
     }
 
     function renderCSVPoints(rows, cfg) {
         if (currentLayer) { map.removeLayer(currentLayer); currentLayer = null; }
         const style = getStyle();
         const markers = [];
-        const limit = cfg.limit ? Math.min(rows.length, cfg.limit) : rows.length;
+        const sampled = sampleRows(rows, cfg.sampleTo);
+        const limit = cfg.limit ? Math.min(sampled.length, cfg.limit) : sampled.length;
         for (let i = 0; i < limit; i++) {
-            const row = rows[i];
+            const row = sampled[i];
             const lat = parseFloat(row[cfg.latF]), lon = parseFloat(row[cfg.lonF]);
             if (isNaN(lat) || isNaN(lon)) continue;
             const popup = cfg.popupFields.filter(f => row[f]).map(f => `<div><b>${f}:</b> ${row[f]}</div>`).join('');
@@ -364,7 +385,7 @@
     }
 
     function redraw() {
-        if (STATIC_LAYERS.has(currentLayerType)) {
+        if (REMOTE_LAYERS.has(currentLayerType)) {
             rebuildLayer();
         } else if (csvCache[currentLayerType]) {
             renderCSVPoints(csvCache[currentLayerType], CSV_LAYERS[currentLayerType]);
