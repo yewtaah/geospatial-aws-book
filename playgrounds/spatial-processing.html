@@ -468,7 +468,7 @@
     };
 
     // Uniformly thin a large CSV by fixed stride so the sample still spans the whole country
-    // instead of just however the source file happens to be sorted (see map-viz.html's same helper).
+    // instead of just however the source file happens to be sorted (see data-samples.html's same helper).
     function sampleRows(rows, sampleTo) {
         if (!sampleTo || rows.length <= sampleTo) return rows;
         const stride = Math.ceil(rows.length / sampleTo);

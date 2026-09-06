@@ -3,500 +3,1024 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Data Samples – Geospatial Data Analytics on AWS</title>
-    <meta name="description" content="Browse and download free geospatial datasets from the book. GeoJSON, CSV, and Cloud-Optimized GeoTIFF samples.">
+    <title>Data Explorer – Geospatial Data Analytics on AWS</title>
+    <meta name="description" content="Browse, style, and download the book's free geospatial datasets. GeoJSON and CSV samples with a live map, sortable table, and raw-format viewer.">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
         body { display: flex; flex-direction: column; min-height: 100vh; }
-
-        .data-layout {
+        .pg-layout {
             display: grid;
             grid-template-columns: 320px 1fr;
             flex: 0 0 calc(100vh - 89px);
-            position: sticky;
-            top: 56px;
             overflow: hidden;
         }
 
-        /* ── Sidebar ─────────────────────────────────────────────────────── */
-        .sidebar {
+        /* ── Sidebar ──────────────────────────────────────────────────────── */
+        .pg-controls {
             background: var(--bg-surface);
             border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1.25rem;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            gap: 1.1rem;
         }
-
-        .sidebar-header {
-            padding: 1.1rem 1.25rem 0.9rem;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-
-        .sidebar-header h2 {
-            font-size: 0.85rem;
+        .ctrl-label {
+            font-size: 0.69rem;
             font-weight: 700;
-            color: #f0f6fc;
-            text-align: left;
-            margin-bottom: 0.2rem;
-            letter-spacing: -0.01em;
-        }
-
-        .sidebar-header p {
-            font-size: 0.75rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
             color: var(--text-muted);
+            margin-bottom: 0.5rem;
         }
-
-        /* Filter tabs */
-        .filter-tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-
+        .ctrl-section { border-top: 1px solid var(--border); padding-top: 1rem; }
+        .filter-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; }
         .filter-tab {
             flex: 1;
             font-family: 'Courier New', monospace;
             font-size: 0.62rem;
             font-weight: 700;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            padding: 0.65rem 0.4rem;
+            padding: 0.4rem 0.3rem;
             cursor: pointer;
-            border: none;
-            border-bottom: 2px solid transparent;
-            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            background: var(--bg-elevated);
             color: var(--text-muted);
             transition: all 0.15s;
         }
-
-        .filter-tab:hover { color: var(--text); background: rgba(14,165,233,0.04); }
-        .filter-tab.active { color: var(--sky); border-bottom-color: var(--sky); background: rgba(14,165,233,0.05); }
-
-        /* Dataset list */
-        .dataset-list { overflow-y: auto; flex: 1; }
-
-        .dataset-item {
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            transition: background 0.12s;
-            position: relative;
-        }
-
-        .dataset-item::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: transparent;
-            transition: background 0.12s;
-        }
-
-        .dataset-item:hover { background: var(--bg-card); }
-        .dataset-item.active { background: var(--bg-elevated); }
-        .dataset-item.active::before { background: var(--sky); }
-
-        .dataset-item-header {
+        .filter-tab:hover { color: var(--text); }
+        .filter-tab.active { color: var(--sky); border-color: var(--sky); background: rgba(14,165,233,0.08); }
+        .dataset-scroll { max-height: 420px; overflow-y: auto; padding-right: 2px; }
+        .opt-btn {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 0.5rem;
+            align-items: center;
+            gap: 0.65rem;
+            width: 100%;
+            text-align: left;
+            padding: 0.55rem 0.85rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 0.83rem;
+            cursor: pointer;
+            transition: all 0.15s;
             margin-bottom: 0.3rem;
         }
-
-        .dataset-item h3 {
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #f0f6fc;
-            line-height: 1.35;
-        }
-
-        .dataset-item p {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            line-height: 1.5;
-        }
-
-        .dataset-meta {
+        .opt-btn:hover { border-color: var(--sky); color: var(--sky); }
+        .opt-btn.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.1); }
+        .opt-btn .op-badge { font-size: 0.6rem; flex-shrink: 0; padding: 0.1rem 0.35rem; }
+        .opt-btn .op-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+        .opt-btn .op-name { font-weight: 600; font-size: 0.83rem; line-height: 1.25; }
+        .opt-btn .op-desc { font-size: 0.68rem; opacity: 0.65; line-height: 1.3; margin-top: 0.1rem; }
+        .download-btn {
             display: flex;
-            gap: 0.35rem;
-            margin-top: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .meta-chip {
-            font-family: 'Courier New', monospace;
-            font-size: 0.62rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            background: var(--bg);
-            border: 1px solid var(--border-mid);
-            border-radius: 2px;
-            padding: 0.1rem 0.4rem;
-            letter-spacing: 0.04em;
-        }
-
-        /* ── Map panel ───────────────────────────────────────────────────── */
-        .map-panel { display: flex; flex-direction: column; background: var(--bg); position: relative; }
-        #map { flex: 1; z-index: 1; }
-
-        /* Map empty state */
-        .map-empty {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.82rem;
-            pointer-events: none;
-            z-index: 2;
-        }
-
-        .map-empty-icon {
-            font-size: 2rem;
-            opacity: 0.2;
-            margin-bottom: 0.5rem;
-        }
-
-        /* Info panel */
-        .info-panel {
-            background: var(--bg-surface);
-            border-top: 1px solid var(--border);
-            padding: 1rem 1.25rem;
-            display: none;
-            flex-shrink: 0;
-        }
-
-        .info-panel.visible {
-            display: flex;
-            gap: 1.5rem;
-            align-items: flex-start;
-            justify-content: space-between;
-            flex-wrap: wrap;
-        }
-
-        .info-panel-text h3 {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: #f0f6fc;
-            margin-bottom: 0.25rem;
-            letter-spacing: -0.01em;
-        }
-
-        .info-panel-text p {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            max-width: 600px;
-            line-height: 1.6;
-        }
-
-        .info-panel-meta {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            margin-top: 0.5rem;
-        }
-
-        .info-meta-item {
-            font-family: 'Courier New', monospace;
-            font-size: 0.68rem;
-            color: var(--text-muted);
-        }
-
-        .info-meta-item strong { color: var(--text); }
-
-        .info-panel-actions {
-            display: flex;
-            gap: 0.75rem;
             align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.6rem;
+            background: rgba(14,165,233,0.07);
+            border: 1px solid var(--sky);
+            border-radius: 3px;
+            color: var(--sky);
+            font-size: 0.81rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .download-btn:hover { background: rgba(14,165,233,0.16); }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+        .stat-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.55rem 0.75rem;
+        }
+        .stat-val { font-size: 1.05rem; font-weight: 700; color: var(--sky); line-height: 1; }
+        .stat-lbl {
+            font-size: 0.67rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .code-block {
+            background: #02040a;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.85rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.71rem;
+            line-height: 1.65;
+            color: #8b9cc4;
+            overflow-x: auto;
+            white-space: pre;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .code-block .kw { color: #c792ea; }
+        .code-block .fn { color: #82aaff; }
+        .code-block .str { color: #c3e88d; }
+        .code-block .cm { color: #4d5e78; font-style: italic; }
+        .code-block .num { color: #f78c6c; }
+        .chapter-tag {
+            font-size: 0.7rem;
+            color: var(--sky);
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        /* ── Style controls (basemap / color / opacity / stroke) ─────────────── */
+        .style-btn {
+            display: block; width: 100%; text-align: left; padding: 0.45rem 0.7rem; margin-bottom: 0.3rem;
+            background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 3px; color: var(--text-muted);
+            font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+        }
+        .style-btn:hover { border-color: var(--sky); color: var(--text); }
+        .style-btn.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.1); }
+        .swatch-row { display: flex; gap: 0.4rem; margin-bottom: 0.3rem; }
+        .swatch {
+            width: 26px; height: 26px; border-radius: 4px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s;
+        }
+        .swatch.active { border-color: #fff; transform: scale(1.1); }
+        .style-note { font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.2rem; }
+        .range-row { margin-bottom: 0.5rem; }
+        .range-row label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .range-row input[type=range] { width: 100%; accent-color: var(--sky); }
+
+        /* ── Right panel ──────────────────────────────────────────────────── */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .map-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+        #map { height: 100%; width: 100%; }
+
+        .data-panel {
+            flex: 0 0 300px;
+            border-top: 2px solid var(--border-mid);
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-surface);
+            min-height: 0;
+        }
+        .right-panel.addr-mode .map-wrap { display: none; }
+        .right-panel.addr-mode .data-panel {
+            flex: 1;
+            border-top: none;
+        }
+
+        /* ── Tabs ─────────────────────────────────────────────────────────── */
+        .tab-bar {
+            display: flex;
+            align-items: center;
+            padding: 0 0.5rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
             flex-shrink: 0;
         }
+        .tab-bar-title {
+            flex: 1;
+            font-size: 0.67rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 0 0.5rem;
+        }
+        .tab-btn {
+            padding: 0.48rem 0.9rem;
+            font-size: 0.73rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            transition: all 0.15s;
+            margin-bottom: -1px;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--sky); border-bottom-color: var(--sky); }
+        .tab-content { display: none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+        .tab-content.active { display: flex; }
 
-        /* Loading */
-        .loading-indicator {
-            display: none;
-            position: absolute;
-            top: 12px;
-            right: 12px;
+        /* ── Table ────────────────────────────────────────────────────────── */
+        .table-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.48rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            background: var(--bg-surface);
+        }
+        .search-input {
+            flex: 1;
             background: var(--bg-elevated);
             border: 1px solid var(--border-mid);
-            border-radius: 2px;
-            padding: 0.5rem 0.9rem;
-            font-size: 0.75rem;
-            font-family: 'Courier New', monospace;
-            color: var(--text-muted);
-            z-index: 1000;
-            letter-spacing: 0.05em;
-        }
-
-        /* Scrollbar */
-        .dataset-list::-webkit-scrollbar { width: 3px; }
-        .dataset-list::-webkit-scrollbar-track { background: transparent; }
-        .dataset-list::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
-
-        /* ── Leaflet dark overrides ───────────────────────────────────────── */
-        .leaflet-container { background: #05080f; }
-
-        .leaflet-popup-content-wrapper {
-            background: var(--bg-elevated);
+            border-radius: 3px;
             color: var(--text);
-            border: 1px solid var(--border-mid);
-            border-radius: 2px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            font-size: 0.77rem;
+            padding: 0.3rem 0.65rem;
+        }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:focus { outline: none; border-color: var(--sky); }
+        .page-info { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+        .page-btn {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            padding: 0.22rem 0.55rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            line-height: 1;
+        }
+        .page-btn:hover:not(:disabled) { border-color: var(--sky); color: var(--sky); }
+        .page-btn:disabled { opacity: 0.3; cursor: default; }
+        .table-scroll { flex: 1; overflow: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th {
+            position: sticky;
+            top: 0;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-mid);
+            padding: 0.4rem 0.75rem;
+            text-align: left;
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.65rem;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        thead th:hover { color: var(--sky); }
+        thead th.sort-asc::after  { content: ' ↑'; color: var(--sky); }
+        thead th.sort-desc::after { content: ' ↓'; color: var(--sky); }
+        tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+        tbody tr:hover { background: rgba(14,165,233,0.04); }
+        tbody tr.row-selected { background: rgba(14,165,233,0.1); }
+        tbody td {
+            padding: 0.33rem 0.75rem;
+            font-size: 0.76rem;
+            color: var(--text-dim);
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        tbody td:first-child { color: #a8c4dd; font-weight: 600; }
+        .table-empty-msg { padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; text-align: center; }
+
+        /* ── Raw code panel ───────────────────────────────────────────────── */
+        .raw-code-wrap {
+            flex: 1;
+            overflow: auto;
+            background: #02040a;
+        }
+        .raw-code {
+            padding: 0.9rem 1.1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            line-height: 1.75;
+            color: #8b9cc4;
+            white-space: pre;
+            min-height: 100%;
         }
 
-        .leaflet-popup-tip { background: var(--bg-elevated); }
+        /* ── Loading overlay ──────────────────────────────────────────────── */
+        .load-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(5,8,15,0.82);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.85rem;
+            z-index: 500;
+        }
+        .load-overlay.hidden { display: none; }
+        .spin {
+            width: 28px; height: 28px;
+            border: 2.5px solid var(--border-mid);
+            border-top-color: var(--sky);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .load-text { font-size: 0.8rem; color: var(--text-muted); text-align: center; max-width: 320px; }
+        .retry-btn {
+            padding: 0.45rem 1rem; background: var(--sky); color: #030810; border: none;
+            border-radius: 4px; font-weight: 700; font-size: 0.78rem; cursor: pointer;
+        }
 
-        .leaflet-popup-content {
-            font-family: 'Courier New', monospace;
-            font-size: 0.75rem;
-            line-height: 1.65;
+        /* ── Leaflet overrides ────────────────────────────────────────────── */
+        .leaflet-container { background: #0d1117; }
+        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        .leaflet-control-zoom a:hover { color: var(--sky) !important; }
+        .leaflet-control-attribution { background: rgba(5,8,15,0.85) !important; color: var(--text-muted) !important; font-size: 0.65rem !important; }
+        .leaflet-control-attribution a { color: var(--text-muted) !important; }
+        .leaflet-popup-content-wrapper { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border-mid); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }
+        .leaflet-popup-tip { background: var(--bg-elevated); }
+        .leaflet-popup-content { margin: 0.65rem 0.85rem; }
+
+        /* ── Map legend ───────────────────────────────────────────────────── */
+        .map-legend {
+            position: absolute;
+            bottom: 26px;
+            right: 12px;
+            z-index: 1000;
+            background: rgba(8,13,26,0.93);
+            border: 1px solid var(--border-mid);
+            border-radius: 4px;
+            padding: 0.6rem 0.85rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            backdrop-filter: blur(8px);
+        }
+        .map-legend[hidden] { display: none; }
+        .legend-title {
+            font-weight: 700;
+            font-size: 0.65rem;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            margin-bottom: 0.45rem;
             color: var(--text-muted);
         }
+        .legend-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.22rem; }
+        .legend-row:last-child { margin-bottom: 0; }
+        .legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
 
-        .leaflet-popup-content strong { color: #f0f6fc; display: block; margin-bottom: 0.25rem; font-size: 0.82rem; font-family: -apple-system, sans-serif; }
-
-        .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text-muted) !important; border-color: var(--border-mid) !important; }
-        .leaflet-control-zoom a:hover { background: var(--bg-card) !important; color: var(--sky) !important; }
-        .leaflet-control-attribution { background: rgba(5,8,15,0.8) !important; color: var(--text-muted) !important; font-size: 10px !important; }
-        .leaflet-control-attribution a { color: var(--text-muted) !important; }
-
-        @media (max-width: 900px) {
-            .data-layout { grid-template-columns: 1fr; grid-template-rows: auto 400px; height: auto; position: static; }
-            .sidebar { max-height: 50vh; }
+        @media (max-width: 768px) {
+            .pg-layout { grid-template-columns: 1fr; height: auto; }
+            .right-panel { height: 80vh; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand"><a href="index.html" style="color:inherit;text-decoration:none;">Geospatial<span style="color:var(--sky)">AWS</span></a></div>
-            <div style="font-family:'Courier New',monospace;font-size:0.7rem;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;">Free Data Samples</div>
+
+<nav class="navbar">
+    <div class="container">
+        <div class="nav-brand">
+            <a href="index.html" style="color:inherit;text-decoration:none;">Geospatial<span style="color:var(--sky)">AWS</span></a>
         </div>
-    </nav>
-
-    <div class="data-layout">
-
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2>Dataset Catalog</h2>
-                <p>Select a dataset to preview on the map</p>
-            </div>
-            <div class="filter-tabs">
-                <button class="filter-tab active" data-filter="all">All</button>
-                <button class="filter-tab" data-filter="vector">Vector</button>
-                <button class="filter-tab" data-filter="tabular">Tabular</button>
-                <button class="filter-tab" data-filter="raster">Raster</button>
-            </div>
-            <div class="dataset-list" id="datasetList"></div>
-        </aside>
-
-        <div class="map-panel">
-            <div id="map">
-                <div class="map-empty" id="mapEmpty">
-                    <div class="map-empty-icon">◈</div>
-                    <div>Select a dataset to preview</div>
-                </div>
-            </div>
-            <div class="loading-indicator" id="loadingIndicator">Loading…</div>
-            <div class="info-panel" id="infoPanel">
-                <div class="info-panel-text">
-                    <h3 id="infoPanelTitle"></h3>
-                    <p id="infoPanelDesc"></p>
-                    <div class="info-panel-meta" id="infoPanelMeta"></div>
-                </div>
-                <div class="info-panel-actions">
-                    <a href="#" id="downloadBtn" class="btn btn-primary btn-small" download>Download ↓</a>
-                    <span id="infoPanelSize" style="font-family:'Courier New',monospace;font-size:0.72rem;color:var(--text-muted);"></span>
-                </div>
-            </div>
-        </div>
-
+        <div style="color:var(--text-muted);font-size:0.85rem;font-weight:500;">Data Explorer</div>
     </div>
+</nav>
 
-    <footer class="page-footer">
-        <span>&copy; 2026 Bateman &middot; Gnanachandran &middot; DeMuth &mdash; Packt</span>
-        <span id="page-updated"></span>
-    </footer>
+<div class="pg-layout">
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-    <script>
-    (function(){var el=document.getElementById('page-updated');if(!el)return;var d=new Date(document.lastModified);if(isNaN(d))return;el.textContent='Updated '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});})();
-    // ── Map init ──────────────────────────────────────────────────────────────
-    const map = L.map('map', { zoomControl: true }).setView([38, -97], 4);
+    <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+    <aside class="pg-controls">
+        <div>
+            <div class="chapter-tag">Chapters 3 – 5</div>
+            <h2 style="font-size:1rem;font-weight:700;color:#f0f6fc;margin-top:0.3rem;">Data Explorer</h2>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.3rem;line-height:1.5;">
+                Browse every free sample dataset from the book on one live map: style it, sort/search its attribute table, view its raw format, and download the source file.
+            </p>
+        </div>
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 19
-    }).addTo(map);
+        <div class="ctrl-section">
+            <div class="ctrl-label">Dataset</div>
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">All</button>
+                <button class="filter-tab" data-filter="vector" onclick="setFilter('vector', this)">Vector</button>
+                <button class="filter-tab" data-filter="tabular" onclick="setFilter('tabular', this)">Tabular</button>
+            </div>
+            <div class="dataset-scroll" id="dataset-list"></div>
+        </div>
 
-    let activeLayer = null;
-    let activeDatasetId = null;
+        <div class="ctrl-section">
+            <div class="ctrl-label">Style</div>
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:0.4rem;">Basemap</div>
+            <button class="style-btn active" data-basemap="dark" onclick="setBasemap('dark', this)">Dark (Esri Canvas)</button>
+            <button class="style-btn" data-basemap="light" onclick="setBasemap('light', this)">Light (Esri Canvas)</button>
+            <button class="style-btn" data-basemap="osm" onclick="setBasemap('osm', this)">OpenStreetMap</button>
+            <div style="font-size:0.7rem;color:var(--text-muted);margin:0.6rem 0 0.4rem;">Layer color</div>
+            <div class="swatch-row" id="swatch-row"></div>
+            <div class="range-row">
+                <label><span>Fill opacity</span><span id="opacityVal">0.55</span></label>
+                <input type="range" id="opacityRange" min="0.05" max="1" step="0.05" value="0.55" oninput="setOpacity(this.value)">
+            </div>
+            <div class="range-row">
+                <label><span>Stroke weight</span><span id="strokeVal">1.5px</span></label>
+                <input type="range" id="strokeRange" min="0.5" max="5" step="0.5" value="1.5" oninput="setStroke(this.value)">
+            </div>
+            <div class="style-note" id="style-note"></div>
+        </div>
 
-    // Layer styles matching the steel-blue/cyan palette
-    const TYPE_STYLE = {
-        vector:  { color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.12, weight: 1.5 },
-        tabular: { color: '#06b6d4', fillColor: '#06b6d4', fillOpacity: 0.9 },
-        raster:  { color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.08, weight: 1.5, dashArray: '5 4' }
-    };
+        <div class="ctrl-section">
+            <div class="ctrl-label">Download</div>
+            <a id="dl-link" href="#" class="download-btn">⬇ &nbsp;Download</a>
+            <div id="dl-meta" style="font-size:0.7rem;color:var(--text-muted);margin-top:0.45rem;text-align:center;"></div>
+        </div>
 
-    // ── Catalog ───────────────────────────────────────────────────────────────
-    let catalog = [];
-
-    fetch('data/catalog.json')
-        .then(r => r.json())
-        .then(data => { catalog = data.datasets; renderList(catalog); })
-        .catch(() => {
-            document.getElementById('datasetList').innerHTML =
-                '<p style="padding:1.25rem;color:var(--text-muted);font-size:0.8rem;font-family:\'Courier New\',monospace;">catalog.json not found</p>';
-        });
-
-    // ── Render sidebar ────────────────────────────────────────────────────────
-    function renderList(datasets) {
-        const list = document.getElementById('datasetList');
-        if (!datasets.length) {
-            list.innerHTML = '<p style="padding:1.25rem;color:var(--text-muted);font-size:0.8rem;">No datasets match this filter.</p>';
-            return;
-        }
-        list.innerHTML = datasets.map(d => `
-            <div class="dataset-item${d.id === activeDatasetId ? ' active' : ''}" data-id="${d.id}" onclick="selectDataset('${d.id}')">
-                <div class="dataset-item-header">
-                    <h3>${d.title}</h3>
-                    <span class="badge badge-${d.type}">${d.format}</span>
+        <div class="ctrl-section">
+            <div class="ctrl-label">Dataset Info</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-val" id="si-features">—</div>
+                    <div class="stat-lbl">Features</div>
                 </div>
-                <p>${d.description.length > 85 ? d.description.slice(0, 85) + '…' : d.description}</p>
-                <div class="dataset-meta">
-                    <span class="meta-chip">${d.size}</span>
-                    ${d.features ? `<span class="meta-chip">${d.features.toLocaleString()} feat.</span>` : ''}
-                    ${d.chapter ? `<span class="meta-chip">${d.chapter}</span>` : ''}
+                <div class="stat-card">
+                    <div class="stat-val" id="si-format">—</div>
+                    <div class="stat-lbl">Format</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val" id="si-crs">—</div>
+                    <div class="stat-lbl">EPSG CRS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val" id="si-size">—</div>
+                    <div class="stat-lbl">File Size</div>
                 </div>
             </div>
-        `).join('');
-    }
+        </div>
 
-    // ── Filter tabs ───────────────────────────────────────────────────────────
-    document.querySelectorAll('.filter-tab').forEach(tab => {
-        tab.addEventListener('click', function () {
-            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            const f = this.dataset.filter;
-            renderList(f === 'all' ? catalog : catalog.filter(d => d.type === f));
-        });
+        <div class="ctrl-section">
+            <div class="ctrl-label">AWS Code Sample</div>
+            <div class="code-block" id="aws-code"></div>
+        </div>
+    </aside>
+
+    <!-- ── Right panel ──────────────────────────────────────────────────────── -->
+    <div class="right-panel" id="right-panel">
+
+        <!-- Map -->
+        <div class="map-wrap">
+            <div id="map"></div>
+            <div class="load-overlay hidden" id="map-loading">
+                <div class="spin" id="load-spinner"></div>
+                <div class="load-text" id="load-text">Loading…</div>
+            </div>
+            <div class="map-legend" id="map-legend" hidden></div>
+        </div>
+
+        <!-- Data viewer panel -->
+        <div class="data-panel">
+            <div class="tab-bar">
+                <span class="tab-bar-title" id="panel-title">Features</span>
+                <button class="tab-btn active" id="tb-table" onclick="showTab('table')">Table</button>
+                <button class="tab-btn" id="tb-code" onclick="showTab('code')">Raw Format</button>
+            </div>
+
+            <!-- Table tab -->
+            <div class="tab-content active" id="tab-table">
+                <div class="table-controls">
+                    <input class="search-input" id="search-input" placeholder="Search…" oninput="onSearch(this.value)">
+                    <span class="page-info" id="page-info">—</span>
+                    <button class="page-btn" id="prev-btn" onclick="prevPage()" disabled>‹</button>
+                    <button class="page-btn" id="next-btn" onclick="nextPage()" disabled>›</button>
+                </div>
+                <div class="table-scroll">
+                    <div class="table-empty-msg" id="table-empty-msg" hidden>This dataset has no tabular attributes (geometry only) — see Raw Format.</div>
+                    <table id="data-table">
+                        <thead id="tbl-head"></thead>
+                        <tbody id="tbl-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Raw format tab -->
+            <div class="tab-content" id="tab-code">
+                <div class="raw-code-wrap">
+                    <div class="raw-code" id="raw-code">Loading…</div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /right-panel -->
+</div><!-- /pg-layout -->
+
+<footer class="page-footer">
+    <span>&copy; 2026 Bateman &middot; Gnanachandran &middot; DeMuth &mdash; Packt</span>
+    <span id="page-updated"></span>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+(function(){var el=document.getElementById('page-updated');if(!el)return;var d=new Date(document.lastModified);if(isNaN(d))return;el.textContent='Updated '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});})();
+
+// ── Basemaps (Esri's free keyless Canvas tiles -- CARTO's anonymous tiles now require an
+// account/API key and plaster "API KEY REQUIRED" across every tile) ─────────────────────
+const TILES = {
+    dark:  { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' },
+    light: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' },
+    osm:   { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors', subdomains: 'abc' },
+};
+const map = L.map('map').setView([38, -96], 4);
+let tileLayer = L.tileLayer(TILES.dark.url, { attribution: TILES.dark.attr, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+
+function setBasemap(key, btn) {
+    document.querySelectorAll('[data-basemap]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    map.removeLayer(tileLayer);
+    const t = TILES[key];
+    tileLayer = L.tileLayer(t.url, { attribution: t.attr, subdomains: t.subdomains || 'abcd', maxZoom: 19 }).addTo(map);
+}
+
+// ── Style state ──────────────────────────────────────────────────────────────
+const SWATCHES = ['#0ea5e9', '#38bdf8', '#84cc16', '#f97316', '#ec4899', '#14b8a6'];
+let styleColor   = SWATCHES[0];
+let styleOpacity = 0.55;
+let styleWeight  = 1.5;
+
+document.getElementById('swatch-row').innerHTML = SWATCHES.map((c, i) =>
+    `<div class="swatch${i === 0 ? ' active' : ''}" style="background:${c}" onclick="setColor('${c}', this)"></div>`
+).join('');
+
+function setColor(c, el) {
+    styleColor = c;
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    rebuildActiveLayer();
+}
+function setOpacity(v) {
+    styleOpacity = parseFloat(v);
+    document.getElementById('opacityVal').textContent = styleOpacity.toFixed(2);
+    rebuildActiveLayer();
+}
+function setStroke(v) {
+    styleWeight = parseFloat(v);
+    document.getElementById('strokeVal').textContent = styleWeight.toFixed(1) + 'px';
+    rebuildActiveLayer();
+}
+
+// ── Catalog ──────────────────────────────────────────────────────────────────
+let catalog = [];
+let DATASETS = {};
+let currentDS = null;
+
+fetch('data/catalog.json')
+    .then(r => r.json())
+    .then(data => {
+        catalog = data.datasets;
+        catalog.forEach(d => { DATASETS[d.id] = d; });
+        renderDatasetList(catalog);
+        selectDataset(catalog[0].id);
+    })
+    .catch(() => {
+        document.getElementById('dataset-list').innerHTML =
+            '<p style="padding:1rem 0;color:var(--text-muted);font-size:0.8rem;">catalog.json failed to load.</p>';
     });
 
-    // ── Select dataset ────────────────────────────────────────────────────────
-    function selectDataset(id) {
-        const dataset = catalog.find(d => d.id === id);
-        if (!dataset) return;
+let activeFilter = 'all';
+function setFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderDatasetList(f === 'all' ? catalog : catalog.filter(d => d.type === f));
+}
 
-        document.querySelectorAll('.dataset-item').forEach(el => el.classList.remove('active'));
-        const item = document.querySelector(`.dataset-item[data-id="${id}"]`);
-        if (item) item.classList.add('active');
-        activeDatasetId = id;
+function renderDatasetList(list) {
+    document.getElementById('dataset-list').innerHTML = list.map(d => {
+        const countTxt = !d.features ? '' :
+            (d.sampleTo && d.sampleTo < d.features)
+                ? `${d.features.toLocaleString()} feat. (${d.sampleTo.toLocaleString()} on map) · `
+                : `${d.features.toLocaleString()} feat. · `;
+        return `
+        <button class="opt-btn${d.id === currentDS ? ' active' : ''}" onclick="selectDataset('${d.id}')">
+            <span class="op-info">
+                <span class="op-name">${d.title}</span>
+                <span class="op-desc">${countTxt}${d.format}</span>
+            </span>
+            <span class="badge badge-${d.type} op-badge">${d.format}</span>
+        </button>
+    `;
+    }).join('');
+}
 
-        if (activeLayer) { map.removeLayer(activeLayer); activeLayer = null; }
-        document.getElementById('mapEmpty').style.display = 'none';
+const PAGE_SIZE = 50;
 
-        document.getElementById('infoPanelTitle').textContent = dataset.title;
-        document.getElementById('infoPanelDesc').textContent = dataset.description;
-        document.getElementById('infoPanelSize').textContent = dataset.size;
-        document.getElementById('downloadBtn').href = dataset.url;
+// ── Load state ───────────────────────────────────────────────────────────────
+let allRows = [], filtRows = [], page = 0, sortCol = null, sortDir = 1, selRow = null;
+let activeLayer = null;
+let layerByIdx = {};
+let rawGeoJSON = null;   // cached parsed GeoJSON for the current dataset
+let rawCSVRows = null;   // cached parsed CSV rows (unsampled) for the current dataset
+let dataCache = {};      // id -> { geojson } or { rows } so switching back is instant
 
-        const meta = [
-            { l: 'FORMAT', v: dataset.format },
-            { l: 'CRS', v: dataset.crs },
-            { l: 'SOURCE', v: dataset.source },
-            dataset.features ? { l: 'FEATURES', v: dataset.features.toLocaleString() } : null,
-            dataset.resolution ? { l: 'RESOLUTION', v: dataset.resolution } : null,
-        ].filter(Boolean);
+const LEAGUE_COLOR = { MLB: '#f97316', NFL: '#22c55e', NBA: '#ef4444', NHL: '#818cf8', MLS: '#06b6d4' };
 
-        document.getElementById('infoPanelMeta').innerHTML = meta.map(m =>
-            `<div class="info-meta-item"><strong>${m.v}</strong>&nbsp;${m.l}</div>`
-        ).join('');
-        document.getElementById('infoPanel').classList.add('visible');
+function popColor(pop) {
+    if (pop > 1000000) return '#0ea5e9';
+    if (pop > 500000)  return '#0891b2';
+    if (pop > 100000)  return '#0e7490';
+    if (pop > 50000)   return '#155e75';
+    if (pop > 10000)   return '#164e63';
+    return '#0c3147';
+}
 
-        if (dataset.type === 'raster')       loadRasterFootprint(dataset);
-        else if (dataset.type === 'vector')  loadGeoJSON(dataset);
-        else if (dataset.type === 'tabular') loadCSV(dataset);
+function setLoading(on, msg) {
+    document.getElementById('map-loading').classList.toggle('hidden', !on);
+    if (msg) document.getElementById('load-text').textContent = msg;
+}
 
-        if (dataset.bbox) {
-            const [w, s, e, n] = dataset.bbox;
-            map.flyToBounds([[s, w], [n, e]], { padding: [40, 40], duration: 0.7 });
-        }
+function showLoadError(ds, err) {
+    document.getElementById('load-spinner').style.display = 'none';
+    document.getElementById('load-text').innerHTML =
+        `Load failed: ${err.message || err}<br><br><button class="retry-btn" onclick="retryLoad('${ds.id}')">Retry</button>`;
+    document.getElementById('map-loading').classList.remove('hidden');
+}
+function retryLoad(id) {
+    document.getElementById('load-spinner').style.display = '';
+    delete dataCache[id];
+    loadDataset(DATASETS[id]);
+}
+
+// ── Sample large CSVs uniformly (fixed stride) so the sample still spans the whole
+// dataset's geography, rather than truncating to whatever rows sort first ─────────────
+function sampleRows(rows, sampleTo) {
+    if (!sampleTo || rows.length <= sampleTo) return rows;
+    const stride = Math.ceil(rows.length / sampleTo);
+    return rows.filter((_, i) => i % stride === 0);
+}
+
+// ── Dataset switch ────────────────────────────────────────────────────────────
+function selectDataset(id) {
+    const ds = DATASETS[id];
+    if (!ds) return;
+    currentDS = id;
+    sortCol = null; sortDir = 1; page = 0; selRow = null;
+    document.getElementById('search-input').value = '';
+    renderDatasetList(activeFilter === 'all' ? catalog : catalog.filter(d => d.type === activeFilter));
+
+    document.getElementById('dl-link').href = ds.url;
+    document.getElementById('dl-link').setAttribute('download', ds.url.split('/').pop());
+    document.getElementById('dl-link').textContent = '⬇  ' + ds.url.split('/').pop();
+    document.getElementById('dl-meta').textContent = `${ds.format} · ${ds.crs} · ${ds.size}`;
+    document.getElementById('si-features').textContent = ds.features ? ds.features.toLocaleString() : '—';
+    document.getElementById('si-format').textContent = ds.format;
+    document.getElementById('si-crs').textContent = ds.crs;
+    document.getElementById('si-size').textContent = ds.size;
+    document.getElementById('panel-title').textContent = ds.title;
+    document.getElementById('aws-code').innerHTML = buildAwsCode(ds);
+    document.getElementById('style-note').textContent =
+        (ds.id === 'us-counties') ? 'This layer uses built-in population choropleth coloring; the swatch above is ignored.' :
+        (ds.id === 'stadiums')    ? 'This layer uses built-in league coloring; the swatch above is ignored.' : '';
+
+    if (activeLayer) { map.removeLayer(activeLayer); activeLayer = null; }
+    const rp = document.getElementById('right-panel');
+    const isTableOnly = ds.format === 'CSV' && !ds.latField;
+    rp.classList.toggle('addr-mode', isTableOnly);
+    updateLegend(ds);
+
+    loadDataset(ds);
+}
+
+function updateLegend(ds) {
+    const legend = document.getElementById('map-legend');
+    if (ds.id === 'us-counties') {
+        legend.hidden = false;
+        legend.innerHTML = `<div class="legend-title">Population</div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0ea5e9"></div><span>&gt; 1 M</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0891b2"></div><span>500 K – 1 M</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0e7490"></div><span>100 K – 500 K</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#155e75"></div><span>50 K – 100 K</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#164e63"></div><span>10 K – 50 K</span></div>
+            <div class="legend-row"><div class="legend-swatch" style="background:#0c3147"></div><span>&lt; 10 K</span></div>`;
+    } else if (ds.id === 'stadiums') {
+        legend.hidden = false;
+        legend.innerHTML = `<div class="legend-title">League</div>` +
+            Object.entries(LEAGUE_COLOR).map(([k, c]) =>
+                `<div class="legend-row"><div class="legend-swatch" style="background:${c}"></div><span>${k}</span></div>`).join('');
+    } else {
+        legend.hidden = true;
     }
+}
 
-    function loadGeoJSON(dataset) {
-        setLoading(true);
-        const style = TYPE_STYLE[dataset.type];
-        fetch(dataset.url)
-            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-            .then(data => {
-                activeLayer = L.geoJSON(data, {
-                    style: () => style,
-                    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4, ...style }),
-                    onEachFeature: (f, layer) => {
-                        if (f.properties) {
-                            const rows = Object.entries(f.properties).slice(0, 6)
-                                .map(([k, v]) => `<div>${k}: ${v}</div>`).join('');
-                            layer.bindPopup(`<strong>${dataset.title}</strong>${rows}`);
-                        }
-                    }
-                }).addTo(map);
-                setLoading(false);
-            })
-            .catch(() => { setLoading(false); showPlaceholder(dataset); });
-    }
-
-    function loadCSV(dataset) {
-        setLoading(true);
-        Papa.parse(dataset.url, {
-            download: true, header: true, dynamicTyping: true,
-            complete: function (results) {
-                const latF = dataset.latField || 'lat';
-                const lonF = dataset.lonField || 'lon';
-                const markers = [];
-                results.data.forEach(row => {
-                    const lat = parseFloat(row[latF]), lon = parseFloat(row[lonF]);
-                    if (isNaN(lat) || isNaN(lon)) return;
-                    const popup = Object.keys(row).filter(k => k !== latF && k !== lonF).slice(0, 6)
-                        .map(k => `<div>${k}: ${row[k]}</div>`).join('');
-                    markers.push(L.circleMarker([lat, lon], { radius: 4, color: '#06b6d4', fillColor: '#06b6d4', fillOpacity: 0.85, weight: 1 })
-                        .bindPopup(`<strong>${dataset.title}</strong>${popup}`));
+async function loadDataset(ds) {
+    setLoading(true, 'Loading ' + ds.title + '…');
+    try {
+        if (ds.format === 'GeoJSON') {
+            let geojson = dataCache[ds.id];
+            if (!geojson) {
+                const resp = await fetch(ds.url);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                geojson = await resp.json();
+                dataCache[ds.id] = geojson;
+            }
+            if (currentDS !== ds.id) return; // user switched away while this was in flight
+            rawGeoJSON = geojson;
+            rawCSVRows = null;
+            allRows = geojson.features.map((f, i) => ({ __idx: i, ...(f.properties || {}) }));
+            filtRows = [...allRows];
+            buildGeoJSONLayer(ds, geojson);
+        } else {
+            let rows = dataCache[ds.id];
+            if (!rows) {
+                rows = await new Promise((resolve, reject) => {
+                    Papa.parse(ds.url, {
+                        download: true, header: true, skipEmptyLines: true,
+                        complete: r => resolve(r.data),
+                        error: e => reject(e),
+                    });
                 });
-                activeLayer = L.layerGroup(markers).addTo(map);
-                setLoading(false);
-            },
-            error: () => { setLoading(false); showPlaceholder(dataset); }
-        });
-    }
-
-    function loadRasterFootprint(dataset) {
-        const style = TYPE_STYLE.raster;
-        const popup = `<strong>${dataset.title}</strong><div>COG — click Download to access the full file</div>`;
-        if (dataset.footprint) {
-            activeLayer = L.geoJSON(dataset.footprint, { style: () => style }).bindPopup(popup).addTo(map);
-        } else if (dataset.bbox) {
-            const [w, s, e, n] = dataset.bbox;
-            activeLayer = L.rectangle([[s, w], [n, e]], style).bindPopup(popup).addTo(map);
+                dataCache[ds.id] = rows;
+            }
+            if (currentDS !== ds.id) return;
+            rawCSVRows = rows;
+            rawGeoJSON = null;
+            allRows = rows.map((r, i) => ({ __idx: i, ...r }));
+            filtRows = [...allRows];
+            if (ds.latField) buildCSVPointLayer(ds, rows);
         }
+        renderTableHead();
+        renderTable();
+        setLoading(false);
+    } catch (e) {
+        showLoadError(ds, e);
     }
+}
 
-    function showPlaceholder(dataset) {
-        if (!dataset.bbox) return;
-        const [w, s, e, n] = dataset.bbox;
-        activeLayer = L.rectangle([[s, w], [n, e]], { ...TYPE_STYLE[dataset.type], dashArray: '8 5', fillOpacity: 0.05 })
-            .bindPopup(`<strong>${dataset.title}</strong><div>Configure your S3 bucket URL in data/catalog.json to enable live loading.</div>`)
-            .addTo(map).openPopup();
+function buildGeoJSONLayer(ds, geojson) {
+    layerByIdx = {};
+    const isCounties = ds.id === 'us-counties';
+    const style = (f) => {
+        if (isCounties) {
+            return { fillColor: popColor(f.properties.POPULATION || 0), fillOpacity: styleOpacity, color: '#1a2e48', weight: styleWeight };
+        }
+        return { color: styleColor, fillColor: styleColor, fillOpacity: styleOpacity, weight: styleWeight };
+    };
+    activeLayer = L.geoJSON(geojson, {
+        style,
+        pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 5, ...style(f) }),
+        onEachFeature(feature, layer) {
+            const idx = geojson.features.indexOf(feature);
+            layerByIdx[idx] = layer;
+            layer.bindPopup(makePopupHtml(ds, feature.properties || {}));
+            if (layer.setStyle) {
+                layer.on({
+                    mouseover(e) { e.target.setStyle({ weight: styleWeight + 1.5, color: '#0ea5e9' }); if (e.target.bringToFront) e.target.bringToFront(); },
+                    mouseout(e) { activeLayer.resetStyle ? activeLayer.resetStyle(e.target) : e.target.setStyle(style(feature)); },
+                });
+            }
+            layer.on('click', () => {
+                selRow = idx; page = Math.floor(idx / PAGE_SIZE);
+                renderTable();
+                scrollSelectedIntoView();
+            });
+        }
+    }).addTo(map);
+    if (ds.bbox) fitBboxSafely(ds.bbox);
+}
+
+function buildCSVPointLayer(ds, rows) {
+    layerByIdx = {};
+    const sampled = sampleRows(rows, ds.sampleTo);
+    const markers = [];
+    sampled.forEach(row => {
+        const idx = rows.indexOf(row);
+        const lat = parseFloat(row[ds.latField]), lon = parseFloat(row[ds.lonField]);
+        if (isNaN(lat) || isNaN(lon)) return;
+        const color = ds.id === 'stadiums' ? (LEAGUE_COLOR[row.League] || '#94a3b8') : styleColor;
+        const m = L.circleMarker([lat, lon], { radius: 5, color: '#0d0e1a', weight: styleWeight, fillColor: color, fillOpacity: styleOpacity })
+            .bindPopup(makePopupHtml(ds, row));
+        m.on('click', () => {
+            selRow = idx; page = Math.floor(idx / PAGE_SIZE);
+            renderTable();
+            scrollSelectedIntoView();
+        });
+        layerByIdx[idx] = m;
+        markers.push(m);
+    });
+    activeLayer = L.layerGroup(markers).addTo(map);
+    if (ds.bbox) fitBboxSafely(ds.bbox);
+}
+
+function fitBboxSafely(bbox) {
+    try { map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]], { padding: [20, 20] }); } catch (e) {}
+}
+
+function scrollSelectedIntoView() {
+    const tbody = document.getElementById('tbl-body');
+    const rowEl = tbody.querySelector('tr.row-selected');
+    if (rowEl) rowEl.scrollIntoView({ block: 'nearest' });
+}
+
+// Re-renders the current layer from already-fetched data (no re-fetch) -- used when a
+// style control changes so switching color/opacity/basemap is instant.
+function rebuildActiveLayer() {
+    const ds = DATASETS[currentDS];
+    if (!ds) return;
+    if (activeLayer) { map.removeLayer(activeLayer); activeLayer = null; }
+    if (rawGeoJSON) buildGeoJSONLayer(ds, rawGeoJSON);
+    else if (rawCSVRows && ds.latField) buildCSVPointLayer(ds, rawCSVRows);
+}
+
+function makePopupHtml(ds, props) {
+    const fields = ds.popupFields && ds.popupFields.length ? ds.popupFields : Object.keys(props).slice(0, 6);
+    if (!fields.length) return `<strong>${ds.title}</strong>`;
+    const rows = fields.map(f => `<div style="display:flex;gap:0.5rem;font-size:0.79rem;line-height:1.75">
+        <span style="color:#4d6480;min-width:90px;flex-shrink:0">${f}</span>
+        <span style="color:#dde6f0;font-weight:600">${formatVal(f, props[f])}</span>
+    </div>`).join('');
+    return `<div><strong style="display:block;margin-bottom:0.3rem;color:#f0f6fc">${ds.title}</strong>${rows}</div>`;
+}
+
+// Only comma-format fields known to be large quantities -- blindly reformatting any
+// numeric-looking value corrupts identifiers with meaningful structure, e.g. FIPS "02013"
+// becoming "2,013" (losing the leading zero) or a year like 1987 becoming "1,987".
+const COMMA_FIELDS = new Set(['POPULATION', 'SQMI', 'POP_SQMI', 'ALAND', 'CAPACITY', 't_cap', 'Stora_Bcf']);
+function formatVal(field, v) {
+    if (v == null || v === '') return '—';
+    if (COMMA_FIELDS.has(field)) {
+        const n = Number(v);
+        if (!isNaN(n)) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
+    return v;
+}
 
-    function setLoading(on) { document.getElementById('loadingIndicator').style.display = on ? 'block' : 'none'; }
-    </script>
+// ── Table ─────────────────────────────────────────────────────────────────────
+function colLabel(c) { return c.replace(/_/g, ' '); }
+
+function tableCols() {
+    const ds = DATASETS[currentDS];
+    if (ds.id === 'us-counties') return ['NAME', 'STATE_NAME', 'FIPS', 'POPULATION', 'SQMI', 'MED_AGE'];
+    if (ds.id === 'stadiums')    return ['Team', 'League', 'Division', 'Lat', 'Long'];
+    if (ds.popupFields && ds.popupFields.length) return ds.popupFields;
+    const first = allRows[0];
+    if (!first) return [];
+    return Object.keys(first).filter(k => k !== '__idx').slice(0, 8);
+}
+
+function renderTableHead() {
+    const cols = tableCols();
+    document.getElementById('tbl-head').innerHTML = cols.length
+        ? '<tr>' + cols.map(c => {
+            const cls = c === sortCol ? (sortDir === 1 ? 'sort-asc' : 'sort-desc') : '';
+            return `<th class="${cls}" onclick="onSort('${c}')">${colLabel(c)}</th>`;
+        }).join('') + '</tr>'
+        : '';
+}
+
+function renderTable() {
+    const cols = tableCols();
+    const tbody = document.getElementById('tbl-body');
+    document.getElementById('table-empty-msg').hidden = !!cols.length;
+    document.getElementById('data-table').style.display = cols.length ? '' : 'none';
+    if (!cols.length) {
+        tbody.innerHTML = '';
+        document.getElementById('tbl-head').innerHTML = '';
+        document.getElementById('page-info').textContent = '—';
+        document.getElementById('prev-btn').disabled = true;
+        document.getElementById('next-btn').disabled = true;
+        return;
+    }
+    const start = page * PAGE_SIZE;
+    const slice = filtRows.slice(start, start + PAGE_SIZE);
+    tbody.innerHTML = slice.map(row => {
+        const sel = row.__idx === selRow ? ' row-selected' : '';
+        const cells = cols.map(c => {
+            const raw = row[c] ?? '';
+            return `<td title="${raw}">${formatVal(c, raw)}</td>`;
+        }).join('');
+        return `<tr class="${sel}" onclick="onRowClick(${row.__idx})">${cells}</tr>`;
+    }).join('');
+
+    const total = filtRows.length;
+    const pages = Math.ceil(total / PAGE_SIZE);
+    document.getElementById('page-info').textContent =
+        total === 0 ? 'No results' : `${(start + 1).toLocaleString()}–${Math.min(start + PAGE_SIZE, total).toLocaleString()} of ${total.toLocaleString()}`;
+    document.getElementById('prev-btn').disabled = page === 0;
+    document.getElementById('next-btn').disabled = page >= pages - 1;
+}
+
+function onRowClick(idx) {
+    selRow = idx;
+    const layer = layerByIdx[idx];
+    if (layer) {
+        if (layer.getBounds) { map.fitBounds(layer.getBounds(), { maxZoom: 8, padding: [30, 30] }); }
+        else if (layer.getLatLng) { map.setView(layer.getLatLng(), 10, { animate: true }); }
+        layer.openPopup();
+    }
+    renderTable();
+}
+
+function onSearch(q) {
+    const cols = tableCols();
+    const lower = q.trim().toLowerCase();
+    filtRows = lower
+        ? allRows.filter(r => cols.some(c => String(r[c] ?? '').toLowerCase().includes(lower)))
+        : [...allRows];
+    page = 0; selRow = null;
+    renderTable();
+}
+
+function onSort(col) {
+    sortDir = col === sortCol ? -sortDir : 1;
+    sortCol = col;
+    filtRows.sort((a, b) => {
+        const av = a[col] ?? '', bv = b[col] ?? '';
+        const an = parseFloat(av), bn = parseFloat(bv);
+        if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+        return String(av).localeCompare(String(bv)) * sortDir;
+    });
+    page = 0;
+    renderTableHead();
+    renderTable();
+}
+
+function prevPage() { if (page > 0) { page--; renderTable(); } }
+function nextPage() { if (page < Math.ceil(filtRows.length / PAGE_SIZE) - 1) { page++; renderTable(); } }
+
+// ── Raw format tab ────────────────────────────────────────────────────────────
+function renderRawCode() {
+    const el = document.getElementById('raw-code');
+    if (rawGeoJSON) {
+        const sample = { type: rawGeoJSON.type, features: rawGeoJSON.features.slice(0, 3) };
+        el.textContent = JSON.stringify(sample, null, 2) + `\n\n// … ${rawGeoJSON.features.length.toLocaleString()} total features (showing first 3)`;
+    } else if (rawCSVRows && rawCSVRows.length) {
+        const headers = Object.keys(rawCSVRows[0]);
+        const csvRows = rawCSVRows.slice(0, 10).map(r => headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(','));
+        el.textContent = [headers.join(','), ...csvRows].join('\n') + `\n\n// … ${rawCSVRows.length.toLocaleString()} total records (showing first 10)`;
+    } else {
+        el.textContent = 'Loading…';
+    }
+}
+
+function showTab(id) {
+    ['table', 'code'].forEach(t => {
+        document.getElementById('tb-' + t).classList.toggle('active', t === id);
+        document.getElementById('tab-' + t).classList.toggle('active', t === id);
+    });
+    if (id === 'code') renderRawCode();
+}
+
+// ── AWS code snippets (generic templates, parameterized per-dataset) ─────────────────
+function buildAwsCode(ds) {
+    if (ds.format === 'GeoJSON') {
+        return `<span class="cm"># AWS Glue / Lambda — ${ds.title} (GeoPandas)</span>
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+
+gdf = gpd.read_file(
+    <span class="str">"${ds.url}"</span>
+)
+<span class="cm"># gdf.crs → ${ds.crs}  (${(ds.features || 0).toLocaleString()} features)</span>
+
+<span class="cm"># Filter / spatial join like any GeoDataFrame</span>
+subset = gdf[gdf.geometry.notnull()]
+joined = gpd.sjoin(gdf, subset, how=<span class="str">"left"</span>, predicate=<span class="str">"intersects"</span>)
+
+joined.to_file(<span class="str">"/tmp/output.geojson"</span>)`;
+    }
+    if (ds.latField) {
+        return `<span class="cm">-- Amazon Athena — query ${ds.title} on S3</span>
+<span class="cm">-- (CSV registered as external table in Glue)</span>
+
+<span class="kw">SELECT</span> *
+<span class="kw">FROM</span>   <span class="str">"geospatial"."${ds.id.replace(/-/g, '_')}"</span>
+<span class="kw">LIMIT</span>  <span class="num">100</span>;
+
+<span class="cm">-- Spatial query with a point geometry</span>
+<span class="kw">SELECT</span>  *,
+        ST_Point(${ds.lonField}, ${ds.latField}) <span class="kw">AS</span> geom
+<span class="kw">FROM</span>   <span class="str">"geospatial"."${ds.id.replace(/-/g, '_')}"</span>
+<span class="kw">WHERE</span>  ST_Contains(
+           ST_GeomFromText(<span class="str">'POLYGON(...)'</span>),
+           ST_Point(${ds.lonField}, ${ds.latField})
+       );`;
+    }
+    return `<span class="cm"># AWS Lambda — Geocode with Location Service</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> geopandas <span class="kw">as</span> gpd
+<span class="kw">import</span> boto3
+
+df = pd.read_csv(<span class="str">"${ds.url}"</span>)
+location = boto3.client(<span class="str">"location"</span>)
+
+<span class="kw">def</span> <span class="fn">geocode</span>(row):
+    r = location.search_place_index_for_text(
+        IndexName=<span class="str">"MyPlaceIndex"</span>,
+        Text=<span class="str">f"{row.city}, {row.state} {row.zip}"</span>,
+        MaxResults=<span class="num">1</span>
+    )
+    pt = r[<span class="str">"Results"</span>][<span class="num">0</span>][<span class="str">"Place"</span>][<span class="str">"Geometry"</span>][<span class="str">"Point"</span>]
+    <span class="kw">return</span> pt[<span class="num">0</span>], pt[<span class="num">1</span>]
+
+df[[<span class="str">"lon"</span>, <span class="str">"lat"</span>]] = df.apply(geocode, axis=<span class="num">1</span>, result_type=<span class="str">"expand"</span>)
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs=<span class="str">"EPSG:4326"</span>)
+gdf.to_file(<span class="str">"/tmp/geocoded.geojson"</span>)`;
+}
+</script>
+
 </body>
 </html>

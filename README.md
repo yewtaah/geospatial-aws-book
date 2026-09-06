@@ -97,9 +97,10 @@ geospatial-aws-book/
 ├── assets/                 # Images
 └── playgrounds/
     ├── spatial-processing.html
-    ├── map-viz.html
     ├── satellite-imagery.html
-    └── pipeline-builder.html
+    ├── pipeline-builder.html
+    ├── field-operator-efficiency.html
+    └── terrain-3d.html
 ```
 
 ---
