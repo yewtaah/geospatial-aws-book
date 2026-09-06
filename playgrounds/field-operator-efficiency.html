@@ -281,7 +281,7 @@
     </div>
 
     <div class="kpi-row">
-        <div class="kpi"><div class="kpi-label">Wells Scheduled</div><div class="kpi-val" id="kpiScheduled">–</div><div class="kpi-sub">of 22 KGFCU wellheads</div></div>
+        <div class="kpi"><div class="kpi-label">Wells Scheduled</div><div class="kpi-val" id="kpiScheduled">–</div><div class="kpi-sub">of <span id="kpiWellCount">–</span> KGFCU wellheads</div></div>
         <div class="kpi"><div class="kpi-label">Critical Backlog</div><div class="kpi-val" id="kpiCritical">–</div><div class="kpi-sub">unscheduled CM / COM</div></div>
         <div class="kpi"><div class="kpi-label">Deferred Production /yr</div><div class="kpi-val" id="kpiProduction">–</div><div class="kpi-sub" id="kpiProductionSub">natural gas left in the ground</div></div>
         <div class="kpi"><div class="kpi-label" id="kpiCostLabel">Total Cost /yr</div><div class="kpi-val" id="kpiCostTotal">–</div><div class="kpi-sub"><span class="line" id="kpiCostFixed">–</span><span class="line" id="kpiCostVariable">–</span><span class="line" id="kpiCostVehicle">–</span></div></div>
@@ -354,6 +354,12 @@
         'WH-3203':['KRK',2], 'WH-3406':['KRK',2], 'WH-4405':['ALV',2],
         'WH-2202':['ALV',3], 'WH-2308':['RUZ',3], 'WH-2401':['RUZ',3],
         'WH-3207':['RUZ',4], 'WH-4404D':['ALV',4],
+        // Wells 23-40 (added to grow a 3-person crew's weekly volume to ~40 activities) --
+        // same rule: only Wed onward, Mon/Tue stay exactly what the recorded GPS matches.
+        'WH-4302':['ALV',2], 'WH-4306':['ALV',2], 'WH-4403':['KRK',2],
+        'WH-3205':['ALV',3], 'WH-3209':['ALV',3], 'WH-2402':['RUZ',3], 'WH-2403':['KRK',3],
+        'WH-4402':['ALV',4], 'WH-3402':['RUZ',4], 'WH-2307':['RUZ',4],
+        'WH-2204':['ALV',5], 'WH-6607':['RUZ',5], 'WH-0012':['RUZ',5],
     };
 
     const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -389,20 +395,27 @@
     // (a fixed circular shift keyed by week index), while keeping its own identity/location/
     // production. Week 0 is returned unchanged -- it has to stay exactly what actually produced
     // the recorded GPS actuals.
+    // Only the original 22 wells (the ones that existed when week 0's actuals were recorded)
+    // rotate for flavor -- the shift is keyed to THAT fixed count, not the growing total, so
+    // adding more wells later never reshuffles which legacy well borrows which maintenance
+    // profile. Wells added after that (23+) keep exactly the type they're authored with, every
+    // week -- there's no "historical" type to rotate them away from.
+    const ORIGINAL_WELL_COUNT = 22;
     function buildWeekWorkOrders(baseRows, weekIdx) {
-        const n = baseRows.length;
-        if (weekIdx === 0) return baseRows.map(r => ({ ...r, assignedTech: null, assignedDay: null, repairAtWeekHour: null, StatusID: 'NEW' }));
+        const resetFields = r => ({ ...r, assignedTech: null, assignedDay: null, repairAtWeekHour: null, StatusID: 'NEW' });
+        if (weekIdx === 0) return baseRows.map(resetFields);
+        const n = ORIGINAL_WELL_COUNT;
         const shift = (weekIdx * 7) % n;
         return baseRows.map((r, i) => {
+            if (i >= ORIGINAL_WELL_COUNT) return resetFields(r);
             const src = baseRows[(i - shift + n) % n];
-            return { ...r, MaintTypeID: src.MaintTypeID, MaintName: src.MaintName, SafetyCritical: src.SafetyCritical,
-                assignedTech: null, assignedDay: null, repairAtWeekHour: null, StatusID: 'NEW' };
+            return resetFields({ ...r, MaintTypeID: src.MaintTypeID, MaintName: src.MaintName, SafetyCritical: src.SafetyCritical });
         });
     }
 
     // ── State ────────────────────────────────────────────────────────────────
     let techs = {};        // tech_code -> row
-    let baseWorkOrders = []; // the 22 wells as loaded from work_orders.csv, typed but week-independent
+    let baseWorkOrders = []; // the 40 wells as loaded from work_orders.csv, typed but week-independent
     let workOrders = [];   // current week's derived rows: {..csv fields.., assignedTech, assignedDay}
     let currentWeek = 1;   // land on "this week"
     let map, planLayerGroups = {}, actualLayerGroups = {}, wellMarkers = {}, routeMeta = {}; // routeMeta[tech_day] = {driveHours,distanceMi,error}
@@ -668,7 +681,7 @@
         });
     }
 
-    const MIN_LABEL_ZOOM = 13; // below this, 22 tightly-packed well labels just overlap into mush
+    const MIN_LABEL_ZOOM = 13; // below this, 40 tightly-packed well labels just overlap into mush
 
     function refreshWellMarkers() {
         workOrders.forEach(w => {
@@ -1842,7 +1855,8 @@
         const deferredMcf = computeDeferredProduction();
 
         const set = (id, val, cls) => { const el = document.getElementById(id); el.textContent = val; el.className = 'kpi-val' + (cls ? ' ' + cls : ''); };
-        set('kpiScheduled', `${scheduled}/22`, scheduled === 22 ? 'ok' : '');
+        document.getElementById('kpiWellCount').textContent = workOrders.length;
+        set('kpiScheduled', `${scheduled}/${workOrders.length}`, scheduled === workOrders.length ? 'ok' : '');
         set('kpiCritical', openRepairs.length, openRepairs.length > 0 ? 'bad' : 'ok');
 
         const annualMcf = deferredMcf * WEEKS_PER_YEAR;
