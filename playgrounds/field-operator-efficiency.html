@@ -962,7 +962,11 @@
         let driveHours = 0;
         for (let i = 0; i < stops.length - 1; i++) driveHours += travelCost(stops[i], stops[i + 1]) / 3600;
         const effortHours = items.reduce((s, w) => s + taskHours(t, w), 0);
-        return driveHours + effortHours;
+        // Any non-empty day for an office-using tech always carries both office stops (morning
+        // assignment + afternoon data entry) -- computeCellRoute always adds this, so the capacity
+        // estimate has to as well, or it'll accept days that are really ~1h longer than it thinks.
+        const officeHours = t.uses_office ? OFFICE_DWELL_HOURS + DATA_ENTRY_HOURS : 0;
+        return driveHours + effortHours + officeHours;
     }
 
     function stopLabel(s) {
@@ -1668,7 +1672,13 @@
         // Real matrix-based estimate (drive + task + site access) for this cell if `w` joined it --
         // no network call, so trying every (tech, day) combination for every work order is instant.
         const projectedHoursWith = (tc, d, w) => estimateHoursFromMatrix(tc, [...(assigned[key(tc, d)] || []), w], policyOn);
-        const CAPACITY_HOURS = 9.0;
+        // With the 8-hr office policy enforced, don't plan a day past the shift it's meant to fit
+        // in. With it off there's no fixed shift to respect, so keep the looser physical ceiling.
+        // The margin absorbs OSRM's Table API (the precomputed MATRIX travelCost reads from)
+        // running slightly faster than its turn-by-turn Route API -- the real route computeCellRoute
+        // fetches afterward -- so an estimate that just clears the cap doesn't end up over it for real.
+        const CAPACITY_ESTIMATE_MARGIN = 0.5;
+        const CAPACITY_HOURS = (policyOn ? 8.0 : 9.0) - CAPACITY_ESTIMATE_MARGIN;
 
         const priority = workOrders.filter(w => w.assignedDay == null).sort((a, b) => {
             const rank = w => w.MaintTypeID === 'COM' ? 0 : w.MaintTypeID === 'CM' ? 1 : 2;
