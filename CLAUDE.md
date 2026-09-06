@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-The companion site for the Packt book "Geospatial Data Analytics on AWS." A static site (no build step, no framework, no bundler) deployed to GitHub Pages at `https://yewtaah.github.io/geospatial-aws-book/`, served under a custom domain (`book.bateman.link`). Every push to `main` deploys automatically.
+The companion site for the Packt book "Geospatial Data Analytics on AWS." A static site (no build step, no framework, no bundler) deployed via AWS Amplify Hosting (app `geospatial-aws-book`, id `d1c8gk3kltchw6`, account `654700647887`), connected to this GitHub repo and served under a custom domain (`book.bateman.link`). Every push to `main` triggers an automatic Amplify build/deploy (usually done within ~90 seconds); check status with `aws amplify list-jobs --app-id d1c8gk3kltchw6 --branch-name main --max-results 5`. Amplify's edge cache is aggressive (`s-maxage=31536000`), so a check made in the same breath as a push can catch the previous build's stale cached response -- if content looks stale right after pushing, wait for the job to reach `SUCCEED` before concluding something is wrong.
 
 ## Running locally
 
