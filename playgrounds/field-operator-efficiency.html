@@ -117,7 +117,7 @@
         .leaflet-control-attribution a { color: var(--text-muted) !important; }
         .leaflet-popup-content-wrapper { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
         .leaflet-popup-tip { background: var(--bg-elevated); }
-        .well-tooltip { background: rgba(8,13,26,.88) !important; border: 1px solid var(--border-mid) !important; color: var(--text) !important;
+        .well-tooltip { background: rgba(8,13,26,.6) !important; border: 1px solid var(--border-mid) !important; color: var(--text) !important;
             border-radius: 3px !important; padding: 2px 6px !important; box-shadow: none !important; }
         .well-tooltip::before { display: none; }
         .well-label { font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.35; white-space: nowrap; }
@@ -626,6 +626,14 @@
     function initMap() {
         map = L.map('map', { scrollWheelZoom: true });
 
+        // Static reference markers (wells, home/office pins) sit BELOW the route polylines
+        // (default overlayPane, z400) so a permanent well-label background never hides the road
+        // a technician's route -- or the animated vehicle marker -- is drawn over. Everything
+        // route-related (lines, direction arrows, sequence badges, the vehicle marker) stays in
+        // Leaflet's default panes, which already render above this one.
+        map.createPane('wellPane');
+        map.getPane('wellPane').style.zIndex = 350;
+
         streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 19
         });
@@ -651,11 +659,11 @@
             iconSize: [14, 14], iconAnchor: [7, 7]
         });
         Object.values(techs).forEach(t => {
-            L.marker([t.home_lat, t.home_lon], { icon: pin(techColorHex(t.tech_code)) })
+            L.marker([t.home_lat, t.home_lon], { icon: pin(techColorHex(t.tech_code)), pane: 'wellPane' })
                 .bindPopup(`<b>${t.driver_name}</b> — ${t.role_archetype}<br><span style="color:#9aa1b8">${t.home_area}</span>`)
                 .addTo(map);
         });
-        L.marker([OFFICE.lat, OFFICE.lon], { icon: pin('#d4a017') })
+        L.marker([OFFICE.lat, OFFICE.lon], { icon: pin('#d4a017'), pane: 'wellPane' })
             .bindPopup(`<b>${OFFICE.name}</b><br><span style="color:#9aa1b8">${OFFICE.sub}</span>`).addTo(map);
 
         const allPts = [[OFFICE.lat, OFFICE.lon], ...Object.values(techs).map(t => [t.home_lat, t.home_lon])];
@@ -687,8 +695,8 @@
         workOrders.forEach(w => {
             const label = `<div class="well-label${isDownTask(w) ? ' down' : ''}"><b>${w.EquipID}</b>${w.TargetMcfPerDay} Mcf/d · ${w.WorkOrderID}</div>`;
             if (!wellMarkers[w.WorkOrderID]) {
-                const marker = L.marker([w.Latitude, w.Longitude], { icon: wellIcon(w) }).addTo(map);
-                marker.bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -6], className: 'well-tooltip', opacity: 1 });
+                const marker = L.marker([w.Latitude, w.Longitude], { icon: wellIcon(w), pane: 'wellPane' }).addTo(map);
+                marker.bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -6], className: 'well-tooltip', opacity: 1, pane: 'wellPane' });
                 if (map.getZoom() < MIN_LABEL_ZOOM) marker.closeTooltip();
                 wellMarkers[w.WorkOrderID] = marker;
             } else {
