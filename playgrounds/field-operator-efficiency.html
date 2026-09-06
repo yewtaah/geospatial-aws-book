@@ -766,9 +766,13 @@
     }
 
     // ── Board ────────────────────────────────────────────────────────────────
-    function woCardHTML(w, locked) {
+    function woCardHTML(w, locked, minutes) {
         const cls = w.MaintTypeID === 'COM' ? 'com' : w.MaintTypeID === 'CM' ? 'cm' : 'pm';
-        const prod = isDownTask(w) ? `<span class="prod">${w.TargetMcfPerDay} Mcf/d while shut in</span>` : '';
+        // Fine print: expected task time (only known once a specific tech is assigned -- PM/CM
+        // minutes are per-tech averages) alongside any at-risk production, on one small line.
+        const fine = [minutes != null ? `~${Math.round(minutes)} min` : null, isDownTask(w) ? `${w.TargetMcfPerDay} Mcf/d while shut in` : null]
+            .filter(Boolean).join(' · ');
+        const prod = fine ? `<span class="prod">${fine}</span>` : '';
         const dragAttrs = locked ? `data-id="${w.WorkOrderID}"` : `draggable="true" data-id="${w.WorkOrderID}" ondragstart="onDragStart(event)"`;
         return `<div class="wo-card ${cls}" ${dragAttrs}>
             <b>${w.EquipID} · ${w.MaintTypeID}</b><span class="sub">${w.MaintName}</span>${prod}</div>`;
@@ -820,7 +824,7 @@
             const locked = dayHasActuals(currentWeek, d.key);
             let officeVisits = 0;
             el.innerHTML = plan.stops.slice(1, -1).map(s => {
-                if (s.type === 'well') return woCardHTML(s.wo, locked);
+                if (s.type === 'well') return woCardHTML(s.wo, locked, taskHours(t, s.wo) * 60);
                 officeVisits++;
                 return officeCardHTML(officeVisits === 1 ? 'Team Production Review' : 'Data entry / paperwork');
             }).join('');
