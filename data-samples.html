@@ -414,6 +414,7 @@
             <button class="style-btn active" data-basemap="dark" onclick="setBasemap('dark', this)">Dark (Esri Canvas)</button>
             <button class="style-btn" data-basemap="light" onclick="setBasemap('light', this)">Light (Esri Canvas)</button>
             <button class="style-btn" data-basemap="osm" onclick="setBasemap('osm', this)">OpenStreetMap</button>
+            <button class="style-btn" data-basemap="imagery" onclick="setBasemap('imagery', this)">Imagery (Esri)</button>
             <div style="font-size:0.7rem;color:var(--text-muted);margin:0.6rem 0 0.4rem;">Layer color</div>
             <div class="swatch-row" id="swatch-row"></div>
             <div class="range-row">
@@ -526,15 +527,33 @@ const TILES = {
     light: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' },
     osm:   { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors', subdomains: 'abc' },
 };
+// Esri World Imagery has real coverage gaps at high zoom in rural/ocean areas that render as
+// solid black tiles -- capping maxZoom below the service's advertised max (and letting Leaflet
+// upscale the last good level past that) avoids requesting into that gap. Reference labels/roads
+// are stacked on top as a second tile layer, same hybrid combo used in field-operator-efficiency.html.
+const IMAGERY_MAX_NATIVE_ZOOM = 17;
+function buildBasemapLayer(key) {
+    if (key === 'imagery') {
+        return L.layerGroup([
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Imagery © Esri', maxZoom: 19, maxNativeZoom: IMAGERY_MAX_NATIVE_ZOOM
+            }),
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Labels © Esri', maxZoom: 19, maxNativeZoom: IMAGERY_MAX_NATIVE_ZOOM
+            }),
+        ]);
+    }
+    const t = TILES[key];
+    return L.tileLayer(t.url, { attribution: t.attr, subdomains: t.subdomains || 'abcd', maxZoom: 19 });
+}
 const map = L.map('map').setView([38, -96], 4);
-let tileLayer = L.tileLayer(TILES.dark.url, { attribution: TILES.dark.attr, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+let tileLayer = buildBasemapLayer('dark').addTo(map);
 
 function setBasemap(key, btn) {
     document.querySelectorAll('[data-basemap]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     map.removeLayer(tileLayer);
-    const t = TILES[key];
-    tileLayer = L.tileLayer(t.url, { attribution: t.attr, subdomains: t.subdomains || 'abcd', maxZoom: 19 }).addTo(map);
+    tileLayer = buildBasemapLayer(key).addTo(map);
 }
 
 // ── Style state ──────────────────────────────────────────────────────────────
