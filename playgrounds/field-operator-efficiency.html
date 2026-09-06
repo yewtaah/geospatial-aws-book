@@ -1684,17 +1684,26 @@
                 : w.MaintTypeID === 'COM' ? ['ALV', 'RUZ', 'KRK']
                 : ['ALV', 'RUZ']; // never hand routine PM/INS to the premium contractor
 
+            // Routine work first tries to land on a day/tech that's ALREADY working that day --
+            // an employee is paid for a full minimum day whether they do one task or five, so
+            // topping up an active day is free capacity, while opening a brand-new day is the
+            // single most expensive thing the optimizer can do for a task with no urgency behind
+            // it. Urgent work skips this preference entirely -- earliest viable day wins outright.
             let best = null;
-            for (const d of openDays.map(x => x.key)) {
-                let dayBest = null;
-                for (const tc of candidates) {
-                    const projected = projectedHoursWith(tc, d, w);
-                    if (projected > CAPACITY_HOURS) continue;
-                    if (!dayBest || projected < dayBest.projected) dayBest = { tc, d, projected };
+            for (const activeOnly of (urgent ? [false] : [true, false])) {
+                for (const d of openDays.map(x => x.key)) {
+                    let dayBest = null;
+                    for (const tc of candidates) {
+                        if (activeOnly && !(assigned[key(tc, d)] || []).length) continue;
+                        const projected = projectedHoursWith(tc, d, w);
+                        if (projected > CAPACITY_HOURS) continue;
+                        if (!dayBest || projected < dayBest.projected) dayBest = { tc, d, projected };
+                    }
+                    if (!dayBest) continue;
+                    if (urgent) { best = dayBest; break; } // earliest viable day wins for urgent work
+                    if (!best || dayBest.projected < best.projected) best = dayBest; // otherwise the least-loaded (active) day
                 }
-                if (!dayBest) continue;
-                if (urgent) { best = dayBest; break; } // earliest viable day wins for urgent work
-                if (!best || dayBest.projected < best.projected) best = dayBest; // otherwise the least-loaded day overall
+                if (best) break; // room found on an already-active day -- never consider opening a fresh one
             }
             if (!best) {
                 // Nobody has clean room anywhere -- take the least-bad slot rather than leave it unscheduled.
