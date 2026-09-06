@@ -120,7 +120,12 @@
         .well-tooltip { background: rgba(8,13,26,.6) !important; border: 1px solid var(--border-mid) !important; color: var(--text) !important;
             border-radius: 3px !important; padding: 2px 6px !important; box-shadow: none !important; }
         .well-tooltip::before { display: none; }
-        .well-label { font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.35; white-space: nowrap; }
+        /* Permanent per-well labels: no background box (it would blot out the map under 40 of them at once) --
+           a dark text halo does the "pop off any basemap" job instead. */
+        .well-label-tip { background: transparent !important; border: none !important; padding: 0 !important; box-shadow: none !important; }
+        .well-label-tip::before { display: none; }
+        .well-label { font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.35; white-space: nowrap; color: var(--text);
+            text-shadow: 0 0 3px #0d1117, 0 0 3px #0d1117, 0 0 5px #0d1117, 0 1px 1px #0d1117; }
         .well-label b { display: block; font-size: 10.5px; color: #f0f6fc; }
         .well-label.down b { color: #f97316; }
         .seq-badge { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; color: #fff;
@@ -696,7 +701,7 @@
             const label = `<div class="well-label${isDownTask(w) ? ' down' : ''}"><b>${w.EquipID}</b>${w.TargetMcfPerDay} Mcf/d · ${w.WorkOrderID}</div>`;
             if (!wellMarkers[w.WorkOrderID]) {
                 const marker = L.marker([w.Latitude, w.Longitude], { icon: wellIcon(w), pane: 'wellPane' }).addTo(map);
-                marker.bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -6], className: 'well-tooltip', opacity: 1, pane: 'wellPane' });
+                marker.bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -6], className: 'well-label-tip', opacity: 1, pane: 'wellPane' });
                 if (map.getZoom() < MIN_LABEL_ZOOM) marker.closeTooltip();
                 wellMarkers[w.WorkOrderID] = marker;
             } else {
