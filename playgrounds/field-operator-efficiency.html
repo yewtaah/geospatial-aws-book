@@ -59,11 +59,31 @@
             font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
         .compliance-table .sev-badge.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad); }
         .compliance-table .sev-badge.warn { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+        .compliance-table .sev-badge.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
         .compliance-table .well-cell { font-family: 'Courier New', monospace; white-space: nowrap; }
         .compliance-empty { color: var(--text-muted); font-size: .8rem; padding: .5rem; }
 
-        .day-tabs { display: flex; gap: .35rem; padding: .75rem 1.75rem; background: var(--bg-surface);
+        .week-nav { display: flex; align-items: center; gap: .75rem; padding: .7rem 1.75rem; background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        .week-nav-btn { font-family: 'Courier New', monospace; font-size: .8rem; width: 28px; height: 28px; border-radius: 4px;
+            border: 1px solid var(--border-mid); background: var(--bg-card); color: var(--text); cursor: pointer; }
+        .week-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+        .week-nav-btn:not(:disabled):hover { border-color: var(--sky); color: var(--sky); }
+        .week-nav-label { font-size: .88rem; font-weight: 700; color: var(--text); }
+        .week-status-pill { font-family: 'Courier New', monospace; font-size: .66rem; text-transform: uppercase; letter-spacing: .04em;
+            padding: .2rem .55rem; border-radius: 10px; border: 1px solid var(--border-mid); color: var(--text-muted); }
+        .week-status-pill.complete { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--border-mid)); }
+        .week-status-pill.in-progress { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, var(--border-mid)); }
+        .week-status-pill.future { color: var(--text-muted); }
+        .week-nav-actual-btn { margin-left: auto; font-size: .74rem; padding: .35rem .7rem; }
+
+        .day-tabs { display: flex; gap: .35rem; align-items: center; padding: .75rem 1.75rem; background: var(--bg-surface);
             border-bottom: 1px solid var(--border); overflow-x: auto; }
+        .view-toggle { display: flex; gap: .25rem; margin-left: auto; }
+        .view-toggle button { font-family: 'Courier New', monospace; font-size: .68rem; padding: .3rem .6rem; border-radius: 3px;
+            border: 1px solid var(--border-mid); background: var(--bg-elevated); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+        .view-toggle button.active { border-color: var(--sky); color: #f0f6fc; background: rgba(14,165,233,0.12); }
+        .view-toggle button:disabled { opacity: .35; cursor: not-allowed; }
         .day-tab { font-family: 'Courier New', monospace; font-size: .74rem; padding: .4rem .85rem; border-radius: 3px;
             border: 1px solid var(--border-mid); background: var(--bg-elevated); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
         .day-tab:hover { border-color: var(--sky); color: var(--text); }
@@ -151,6 +171,8 @@
 
         .wo-cell { padding: .4rem; min-height: 92px; display: flex; flex-direction: column; gap: .3rem; }
         .wo-cell.dragover { background: rgba(14,165,233,.08); outline: 1px dashed var(--sky); outline-offset: -3px; }
+        .wo-cell.locked { background: rgba(255,255,255,.02); }
+        .wo-card:not([draggable]) { cursor: default; opacity: .82; }
         .wo-cards { display: flex; flex-direction: column; gap: .28rem; }
         .wo-card { font-size: .68rem; padding: .3rem .45rem; border-radius: 3px; cursor: grab; line-height: 1.3;
             border-left: 3px solid var(--text-dim); background: var(--bg-elevated); color: var(--text); }
@@ -215,6 +237,8 @@
         <label class="assump-field"><span>Vehicle cost</span>$<input type="number" id="vehicleCostPerMile" min="0" step="0.01" onchange="updateVehicleCostPerMile(this.value)">/mi</label>
     </div>
 
+    <div class="week-nav" id="weekNav"></div>
+
     <div class="day-tabs" id="dayTabs"></div>
 
     <div class="playback-bar">
@@ -249,7 +273,7 @@
         <div class="backlog" id="backlog"></div>
 
         <div class="board-head">
-            <h2>Weekly Schedule — Aug 3–8, 2026</h2>
+            <h2>Weekly Schedule — <span id="boardWeekLabel"></span></h2>
             <button type="button" class="btn btn-small btn-primary" onclick="optimizeSchedule()">⚡ Optimize Work Schedule</button>
         </div>
         <div id="boardSub" class="board-legend">PM = routine check · INS = inspection · CM = corrective repair · COM = RTU comms fault (well shut in, safety-critical)</div>
@@ -277,27 +301,36 @@
         </table>
     </div>
 
+    <div class="compliance-panel" id="planActualPanel" hidden>
+        <div class="compliance-panel-head">
+            <h3>Plan vs. Actual — <span id="planActualWeekLabel"></span></h3>
+            <button type="button" class="btn btn-small" onclick="togglePlanActualPanel()">Close</button>
+        </div>
+        <div id="planActualSummary" style="font-size:.8rem;color:var(--text-muted);margin-bottom:.7rem;"></div>
+        <table class="compliance-table" id="planActualTable">
+            <thead><tr><th>Technician</th><th>Day</th><th>Planned</th><th>Actual</th><th>Variance</th></tr></thead>
+            <tbody id="planActualTableBody"></tbody>
+        </table>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <script>
     // ── Constants ────────────────────────────────────────────────────────────
     const OFFICE = { lat: 29.864996, lon: -95.790395, name: 'Hilcorp Field Office', sub: 'Porter Rd, Harris Co.' };
     const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
-    const DAYS = [
-        { key: 0, label: 'Mon', date: 'Aug 3' }, { key: 1, label: 'Tue', date: 'Aug 4' },
-        { key: 2, label: 'Wed', date: 'Aug 5' }, { key: 3, label: 'Thu', date: 'Aug 6' },
-        { key: 4, label: 'Fri', date: 'Aug 7' }, { key: 5, label: 'Sat', date: 'Aug 8' },
-    ];
     const HEAT_CUTOFF_HOUR = 13.5; // 1:30 PM local -- fieldwork finishing after this in August heat gets flagged
     const RTU_REBOOT_MINUTES = 2;  // "sometimes the RTU just needs to be rebooted" -- trivial fix, any technician
     let NATURAL_GAS_PRICE_PER_MCF = 3.25; // illustrative Henry-Hub-ish price, for a $ read on deferred production -- user-editable
     const WEEKS_PER_YEAR = 52; // KPI strip annualizes this one representative week's cost/mileage/deferment
     let VEHICLE_COST_PER_MILE = 0.67; // fuel + insurance + wear -- roughly the IRS standard mileage rate -- user-editable
 
-    // Default seed schedule: EquipID -> [techCode, dayIdx]. Four wells are deliberately left out
-    // (WH-3207 and WH-2306 -- open RTU comms faults, and WH-3406 / WH-2308 -- routine checks) so
-    // the backlog isn't empty on load.
-    const SEED = {
+    // Default seed schedule for "last week" (Aug 3-8) -- EquipID -> [techCode, dayIdx]. This is
+    // exactly the schedule that was actually worked that week, which is what produced the real
+    // GPS breadcrumb tracks under data/GPS/ -- it has to stay in sync with those recordings, not
+    // just be "a" plan. Four wells were left in the backlog (WH-3207/WH-2306 open RTU comms faults,
+    // WH-3406/WH-2308 routine checks) and genuinely never got dispatched that week.
+    const SEED_WEEK0 = {
         'WH-4401':['ALV',0], 'WH-0001':['ALV',0], 'WH-0011':['ALV',0],
         'WH-3310':['RUZ',0],
         'WH-4301':['ALV',1], 'WH-4305':['ALV',1], 'WH-3201':['RUZ',1], 'WH-3203':['RUZ',1],
@@ -308,15 +341,79 @@
         'WH-2202':['ALV',4], 'WH-2201':['ALV',4],
         'WH-4404D':['KRK',5], 'WH-4405':['KRK',5],
     };
+    // "This week" (Aug 10-15) -- Mon/Tue are already in the past (see SIM_TODAY below), and the
+    // GPS tracks for those two days were generated to match this exact seed via
+    // tools/generate_gps_breadcrumbs.js. Wed onward hasn't happened yet in this simulated timeline,
+    // so it's ordinary editable planning, same as any future week.
+    const SEED_WEEK1 = {
+        'WH-4301':['ALV',0], 'WH-0001':['ALV',0], 'WH-0011':['ALV',0],
+        'WH-2201':['RUZ',0], 'WH-2205':['RUZ',0],
+        'WH-4401':['ALV',1], 'WH-4305':['ALV',1],
+        'WH-3310':['RUZ',1], 'WH-3401':['RUZ',1],
+        'WH-3201':['KRK',1], 'WH-3202':['KRK',1],
+        'WH-3203':['KRK',2], 'WH-3406':['KRK',2], 'WH-4405':['ALV',2],
+        'WH-2202':['ALV',3], 'WH-2308':['RUZ',3], 'WH-2401':['RUZ',3],
+        'WH-3207':['RUZ',4], 'WH-4404D':['ALV',4],
+    };
+
+    const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    function makeWeekDays(mondayISO) {
+        const start = new Date(mondayISO + 'T00:00:00');
+        return DAY_LABELS.map((label, i) => {
+            const d = new Date(start); d.setDate(d.getDate() + i);
+            return { key: i, label, date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), iso: d.toISOString().slice(0, 10) };
+        });
+    }
+    const WEEKS = [
+        { key: 0, label: 'Aug 3–8, 2026',   mondayISO: '2026-08-03', seed: SEED_WEEK0, days: makeWeekDays('2026-08-03') },
+        { key: 1, label: 'Aug 10–15, 2026', mondayISO: '2026-08-10', seed: SEED_WEEK1, days: makeWeekDays('2026-08-10') },
+        { key: 2, label: 'Aug 17–22, 2026', mondayISO: '2026-08-17', seed: {},         days: makeWeekDays('2026-08-17') },
+    ];
+    // Where "now" sits in this simulated timeline: Wednesday of "this week" (week 1). Every day
+    // before that -- all of week 0, and Mon/Tue of week 1 -- has real recorded GPS actuals. Wed
+    // onward, and all of week 2, hasn't happened yet, so it's plan-only.
+    const SIM_TODAY = { weekIdx: 1, dayIdx: 2 };
+    function dayHasActuals(weekIdx, dayIdx) {
+        if (weekIdx < SIM_TODAY.weekIdx) return true;
+        if (weekIdx > SIM_TODAY.weekIdx) return false;
+        return dayIdx < SIM_TODAY.dayIdx;
+    }
+    function weekStatus(weekIdx) {
+        if (weekIdx < SIM_TODAY.weekIdx) return 'complete';
+        if (weekIdx > SIM_TODAY.weekIdx) return 'future';
+        return 'in-progress';
+    }
+
+    // Deterministic per-well maintenance-profile rotation so "next week"'s backlog isn't a stale
+    // copy of this week's -- each well borrows another well's MaintTypeID/MaintName/SafetyCritical
+    // (a fixed circular shift keyed by week index), while keeping its own identity/location/
+    // production. Week 0 is returned unchanged -- it has to stay exactly what actually produced
+    // the recorded GPS actuals.
+    function buildWeekWorkOrders(baseRows, weekIdx) {
+        const n = baseRows.length;
+        if (weekIdx === 0) return baseRows.map(r => ({ ...r, assignedTech: null, assignedDay: null, repairAtWeekHour: null, StatusID: 'NEW' }));
+        const shift = (weekIdx * 7) % n;
+        return baseRows.map((r, i) => {
+            const src = baseRows[(i - shift + n) % n];
+            return { ...r, MaintTypeID: src.MaintTypeID, MaintName: src.MaintName, SafetyCritical: src.SafetyCritical,
+                assignedTech: null, assignedDay: null, repairAtWeekHour: null, StatusID: 'NEW' };
+        });
+    }
 
     // ── State ────────────────────────────────────────────────────────────────
     let techs = {};        // tech_code -> row
-    let workOrders = [];   // array of {..csv fields.., assignedTech, assignedDay}
-    let map, dayLayerGroups = {}, wellMarkers = {}, routeMeta = {}; // routeMeta[tech_day] = {driveHours,distanceMi,error}
+    let baseWorkOrders = []; // the 22 wells as loaded from work_orders.csv, typed but week-independent
+    let workOrders = [];   // current week's derived rows: {..csv fields.., assignedTech, assignedDay}
+    let currentWeek = 1;   // land on "this week"
+    let map, planLayerGroups = {}, actualLayerGroups = {}, wellMarkers = {}, routeMeta = {}; // routeMeta[tech_day] = {driveHours,distanceMi,error}
+    let actualMeta = {};   // actualMeta[tech_day] = analyzeActualTrack() result, for days with recorded GPS
+    let gpsTrackCache = {}; // gpsTrackCache[driverName_iso] = raw parsed points, kept across week switches
+    let viewMode = 'both'; // 'plan' | 'actual' | 'both' -- which map layers show for the selected day
     let currentDay = 0;
     let pendingRoutes = 0;
     let routeGen = {}; // per-cell request counter, so a slow/stale OSRM response can't clobber a newer one
     let complianceFlagDetails = []; // rebuilt each recomputeKPIs -- {severity,text,well,tech,day} behind the Compliance Flags KPI
+    let DAYS = WEEKS[currentWeek].days; // reassigned by loadWeek() -- everything below just reads DAYS
 
     // Real road-network duration/distance between every home, the office, and every well -- fetched
     // ONCE (OSRM's Table API, a single request) since none of these 26 points ever move. Ordering
@@ -381,30 +478,79 @@
             t.start_hour_local = parseFloat(t.start_hour_local) + parseFloat(t.start_min_local) / 60;
             techs[t.tech_code] = t;
         });
-        workOrders = orders.map(w => {
+        baseWorkOrders = orders.map(w => {
             w.Latitude = parseFloat(w.Latitude); w.Longitude = parseFloat(w.Longitude);
             w.SafetyCritical = w.SafetyCritical === 'TRUE';
             w.TargetMcfPerDay = parseFloat(w.TargetMcfPerDay) || 0;
-            w.repairAtWeekHour = null; // set once its cell's route resolves; null = "still down" for the full week
-            const seed = SEED[w.EquipID];
-            w.assignedTech = seed ? seed[0] : null;
-            w.assignedDay = seed ? seed[1] : null;
             return w;
         });
+        workOrders = baseWorkOrders; // identity/coords are stable across weeks -- fine for the one-time matrix build below
         await buildDistanceMatrix(); // one-time real road-network matrix -- see note above MATRIX
         init();
     });
 
     function init() {
         initMap();
+        loadWeek(currentWeek);
+        ['ALV', 'RUZ', 'KRK'].forEach(tc => { document.getElementById(`rate${tc}`).value = techs[tc].hourly_rate_usd; });
+        document.getElementById('naturalGasPrice').value = NATURAL_GAS_PRICE_PER_MCF;
+        document.getElementById('vehicleCostPerMile').value = VEHICLE_COST_PER_MILE;
+    }
+
+    // Rebuilds every piece of week-scoped state -- called once at startup and again on Prev/Next.
+    // Map layer GROUPS themselves (planLayerGroups/actualLayerGroups, keyed 0-5) are created once in
+    // initMap() and just cleared here, since every week has the same 6 day slots.
+    function loadWeek(weekIdx) {
+        stopPlayback();
+        currentWeek = weekIdx;
+        DAYS = WEEKS[weekIdx].days;
+        currentDay = (weekIdx === SIM_TODAY.weekIdx) ? SIM_TODAY.dayIdx : 0;
+        viewMode = 'both';
+
+        workOrders = buildWeekWorkOrders(baseWorkOrders, weekIdx).map(w => {
+            const seed = WEEKS[weekIdx].seed[w.EquipID];
+            w.assignedTech = seed ? seed[0] : null;
+            w.assignedDay = seed ? seed[1] : null;
+            return w;
+        });
+        routeMeta = {}; actualMeta = {}; routeGen = {}; actualTrackGen = {}; complianceFlagDetails = [];
+
+        Object.values(planLayerGroups).forEach(g => { g.clearLayers(); map.removeLayer(g); });
+        Object.values(actualLayerGroups).forEach(g => { g.clearLayers(); map.removeLayer(g); });
+        Object.values(wellMarkers).forEach(m => map.removeLayer(m));
+        wellMarkers = {};
+
+        renderWeekNav();
         renderDayTabs();
         renderLegend();
         renderBoard();
         recomputeAll();
         renderPlaybackTechButtons();
-        ['ALV', 'RUZ', 'KRK'].forEach(tc => { document.getElementById(`rate${tc}`).value = techs[tc].hourly_rate_usd; });
-        document.getElementById('naturalGasPrice').value = NATURAL_GAS_PRICE_PER_MCF;
-        document.getElementById('vehicleCostPerMile').value = VEHICLE_COST_PER_MILE;
+        document.getElementById('boardWeekLabel').textContent = WEEKS[weekIdx].label;
+        applyDayLayers();
+    }
+
+    function goToWeek(delta) {
+        const next = currentWeek + delta;
+        if (next < 0 || next >= WEEKS.length) return;
+        loadWeek(next);
+    }
+
+    function renderWeekNav() {
+        const status = weekStatus(currentWeek);
+        const statusLabel = status === 'complete' ? 'Complete — full actuals'
+            : status === 'future' ? 'Planned only — no actuals yet'
+            : `In progress — ${DAYS.slice(0, SIM_TODAY.dayIdx).map(d => d.label).join('–')} actual, ${DAYS[SIM_TODAY.dayIdx].label}– planned`;
+        const hasAnyActuals = DAYS.some(d => dayHasActuals(currentWeek, d.key));
+        document.getElementById('weekNav').innerHTML = `
+            <button type="button" class="week-nav-btn" ${currentWeek === 0 ? 'disabled' : ''} onclick="goToWeek(-1)">◀</button>
+            <span class="week-nav-label">${WEEKS[currentWeek].label}</span>
+            <span class="week-status-pill ${status}">${status === 'complete' ? 'Complete' : status === 'future' ? 'Planned only' : 'In progress'}</span>
+            <span style="font-size:.74rem;color:var(--text-dim);">${statusLabel}</span>
+            <button type="button" class="week-nav-btn" ${currentWeek === WEEKS.length - 1 ? 'disabled' : ''} onclick="goToWeek(1)">▶</button>
+            ${hasAnyActuals ? `<button type="button" class="btn btn-small week-nav-actual-btn" onclick="togglePlanActualPanel()">📊 Plan vs. Actual</button>` : ''}
+        `;
+        document.getElementById('planActualPanel').hidden = true;
     }
 
     // Editable assumptions: rates/price change the $ math instantly without re-hitting OSRM --
@@ -420,7 +566,7 @@
             if (!m || m.error) return;
             m.cost = m.billableHours * rate;
             const statsEl = document.getElementById(`stats_${key}`);
-            if (statsEl) statsEl.innerHTML = renderCellStats(m);
+            if (statsEl) statsEl.innerHTML = renderCellStats(m, actualMeta[key]);
         });
         recomputeKPIs();
     }
@@ -432,7 +578,7 @@
         DAYS.forEach(d => Object.keys(techs).forEach(tc => {
             const key = `${tc}_${d.key}`, m = routeMeta[key];
             const statsEl = document.getElementById(`stats_${key}`);
-            if (statsEl && m && !m.error) statsEl.innerHTML = renderCellStats(m);
+            if (statsEl && m && !m.error) statsEl.innerHTML = renderCellStats(m, actualMeta[key]);
         }));
         recomputeKPIs();
     }
@@ -482,8 +628,9 @@
         ]);
         streetLayer.addTo(map);
 
-        DAYS.forEach(d => { dayLayerGroups[d.key] = L.layerGroup(); });
-        dayLayerGroups[0].addTo(map);
+        // Day-keyed layer groups are created once and reused across weeks -- loadWeek() just
+        // clears them and applyDayLayers() adds/removes them from the map as the day/view changes.
+        DAYS.forEach(d => { planLayerGroups[d.key] = L.layerGroup(); actualLayerGroups[d.key] = L.layerGroup(); });
 
         // Home + office markers (static)
         const pin = (color) => L.divIcon({
@@ -543,7 +690,13 @@
         });
     }
 
+    // Actual-track rows only make sense once there's something to show -- appended when the
+    // currently selected day has recorded GPS, dropped otherwise (a future/plan-only day has
+    // nothing for them to explain).
     function renderLegend() {
+        const actualRows = dayHasActuals(currentWeek, currentDay) ? `
+            <div class="row"><span class="sw" style="background:none;border-top:2px dotted #9aa1b8;width:10px;height:0;border-radius:0;"></span>Actual GPS path</div>
+            <div class="row"><span class="sw" style="background:#f97316;border-radius:2px;transform:rotate(45deg);"></span>Unplanned stop</div>` : '';
         document.getElementById('mapLegend').innerHTML = `
             <div class="row"><span class="sw" style="background:#0ea5e9"></span>Alvey home</div>
             <div class="row"><span class="sw" style="background:#c2669d"></span>Ruiz home</div>
@@ -552,27 +705,51 @@
             <div class="row"><span class="sw" style="background:#22c55e"></span>Scheduled / producing</div>
             <div class="row"><span class="sw" style="background:#ef4444"></span>Unscheduled repair (CM)</div>
             <div class="row"><span class="sw" style="background:#f97316"></span>Unscheduled RTU fault (shut in)</div>
-            <div class="row"><span class="sw" style="background:#6b7280"></span>Routine backlog</div>`;
+            <div class="row"><span class="sw" style="background:#6b7280"></span>Routine backlog</div>${actualRows}`;
     }
 
     function renderDayTabs() {
         const el = document.getElementById('dayTabs');
-        el.innerHTML = DAYS.map(d => `<div class="day-tab${d.key === currentDay ? ' active' : ''}" data-day="${d.key}" onclick="setMapDay(${d.key})">${d.label} <span style="opacity:.6">${d.date}</span></div>`).join('');
+        el.innerHTML = DAYS.map(d => `<div class="day-tab${d.key === currentDay ? ' active' : ''}" data-day="${d.key}" onclick="setMapDay(${d.key})">${d.label} <span style="opacity:.6">${d.date}</span>${dayHasActuals(currentWeek, d.key) ? ' <span title="Actual GPS recorded" style="color:var(--ok)">●</span>' : ''}</div>`).join('')
+            + `<div class="view-toggle" id="viewToggle"></div>`;
+        renderViewToggle();
+    }
+
+    // Plan/Actual/Both only matters (and is only enabled) on a day that actually has recorded GPS.
+    function renderViewToggle() {
+        const el = document.getElementById('viewToggle');
+        if (!el) return;
+        if (!dayHasActuals(currentWeek, currentDay)) { el.innerHTML = `<button type="button" disabled>Plan only</button>`; return; }
+        el.innerHTML = [['plan', 'Plan'], ['both', 'Both'], ['actual', 'Actual']]
+            .map(([m, label]) => `<button type="button" class="${viewMode === m ? 'active' : ''}" onclick="setViewMode('${m}')">${label}</button>`).join('');
+    }
+
+    function setViewMode(mode) { viewMode = mode; renderViewToggle(); applyDayLayers(); }
+
+    // Shows the currently selected day's plan and/or actual layer groups per `viewMode` -- the
+    // single place that decides what's actually visible on the map at any moment.
+    function applyDayLayers() {
+        Object.values(planLayerGroups).forEach(g => map.removeLayer(g));
+        Object.values(actualLayerGroups).forEach(g => map.removeLayer(g));
+        if (viewMode !== 'actual') planLayerGroups[currentDay].addTo(map);
+        if (viewMode !== 'plan' && dayHasActuals(currentWeek, currentDay)) actualLayerGroups[currentDay].addTo(map);
     }
 
     function setMapDay(dayIdx) {
-        map.removeLayer(dayLayerGroups[currentDay]);
         currentDay = dayIdx;
-        dayLayerGroups[currentDay].addTo(map);
         document.querySelectorAll('.day-tab').forEach(t => t.classList.toggle('active', +t.dataset.day === dayIdx));
+        renderViewToggle();
+        renderLegend();
+        applyDayLayers();
         renderPlaybackTechButtons(); // different day -> different (or no) technicians to replay
     }
 
     // ── Board ────────────────────────────────────────────────────────────────
-    function woCardHTML(w) {
+    function woCardHTML(w, locked) {
         const cls = w.MaintTypeID === 'COM' ? 'com' : w.MaintTypeID === 'CM' ? 'cm' : 'pm';
         const prod = isDownTask(w) ? `<span class="prod">${w.TargetMcfPerDay} Mcf/d while shut in</span>` : '';
-        return `<div class="wo-card ${cls}" draggable="true" data-id="${w.WorkOrderID}" ondragstart="onDragStart(event)">
+        const dragAttrs = locked ? `data-id="${w.WorkOrderID}"` : `draggable="true" data-id="${w.WorkOrderID}" ondragstart="onDragStart(event)"`;
+        return `<div class="wo-card ${cls}" ${dragAttrs}>
             <b>${w.EquipID} · ${w.MaintTypeID}</b><span class="sub">${w.MaintName}</span>${prod}</div>`;
     }
 
@@ -586,8 +763,10 @@
     function renderBoard() {
         const backlog = document.getElementById('backlog');
         const unassigned = workOrders.filter(w => !w.assignedTech);
+        // Nowhere left to drop a backlog card if every day this week is already history.
+        const weekOpen = DAYS.some(d => !dayHasActuals(currentWeek, d.key));
         backlog.innerHTML = unassigned.length
-            ? unassigned.map(woCardHTML).join('')
+            ? unassigned.map(w => woCardHTML(w, !weekOpen)).join('')
             : '<div class="backlog-empty">All work orders scheduled.</div>';
         backlog.ondragover = e => { e.preventDefault(); backlog.classList.add('dragover'); };
         backlog.ondragleave = () => backlog.classList.remove('dragover');
@@ -598,10 +777,11 @@
         Object.values(techs).forEach(t => {
             html += `<div class="row-head"><span class="tname" style="color:${techColorHex(t.tech_code)}">${t.driver_name}</span><span class="trole">${t.role_archetype}</span><span class="rate" id="rate-label-${t.tech_code}">$${t.hourly_rate_usd}/hr</span></div>`;
             DAYS.forEach(d => {
-                html += `<div class="wo-cell" data-tech="${t.tech_code}" data-day="${d.key}"
-                    ondragover="event.preventDefault();this.classList.add('dragover')"
+                const locked = dayHasActuals(currentWeek, d.key);
+                const dropAttrs = locked ? '' : `ondragover="event.preventDefault();this.classList.add('dragover')"
                     ondragleave="this.classList.remove('dragover')"
-                    ondrop="onDrop(event,'${t.tech_code}',${d.key})">
+                    ondrop="onDrop(event,'${t.tech_code}',${d.key})"`;
+                html += `<div class="wo-cell${locked ? ' locked' : ''}" data-tech="${t.tech_code}" data-day="${d.key}" ${dropAttrs}>
                     <div class="wo-cards" id="cards_${t.tech_code}_${d.key}"></div>
                     <div class="cell-stats" id="stats_${t.tech_code}_${d.key}">—</div>
                     </div>`;
@@ -616,9 +796,10 @@
             const el = document.getElementById(`cards_${t.tech_code}_${d.key}`);
             const plan = buildDayPlan(t.tech_code, d.key);
             if (!plan) { el.innerHTML = ''; return; }
+            const locked = dayHasActuals(currentWeek, d.key);
             let officeVisits = 0;
             el.innerHTML = plan.stops.slice(1, -1).map(s => {
-                if (s.type === 'well') return woCardHTML(s.wo);
+                if (s.type === 'well') return woCardHTML(s.wo, locked);
                 officeVisits++;
                 return officeCardHTML(officeVisits === 1 ? 'Team Production Review' : 'Data entry / paperwork');
             }).join('');
@@ -632,10 +813,12 @@
     function onDrop(e, techCode, dayIdx) {
         e.preventDefault();
         e.currentTarget.classList.remove('dragover');
+        if (techCode !== null && dayHasActuals(currentWeek, dayIdx)) return; // can't schedule onto a day that's already history
         const id = e.dataTransfer.getData('text/plain') || dragId;
         const wo = workOrders.find(w => w.WorkOrderID === id);
         if (!wo) return;
         const prevTech = wo.assignedTech, prevDay = wo.assignedDay;
+        if (prevTech !== null && dayHasActuals(currentWeek, prevDay)) return; // its source day is locked -- shouldn't have been draggable
         if (prevTech === techCode && prevDay === dayIdx) return; // dropped back where it started
         wo.assignedTech = techCode; wo.assignedDay = dayIdx; wo.StatusID = techCode ? 'ASG' : 'NEW';
         wo.repairAtWeekHour = null; // stale until its (new, or backlog) cell's route recomputes
@@ -838,14 +1021,20 @@
     async function computeCellRoute(techCode, dayIdx) {
         const key = `${techCode}_${dayIdx}`;
         const myGen = (routeGen[key] = (routeGen[key] || 0) + 1); // this call owns `key` until a newer one starts
-        const layerGroup = dayLayerGroups[dayIdx];
+        const layerGroup = planLayerGroups[dayIdx];
         if (routeMeta[key] && routeMeta[key].markers) { routeMeta[key].markers.forEach(m => layerGroup.removeLayer(m)); }
         const statsEl = document.getElementById(`stats_${key}`);
 
         const plan = buildDayPlan(techCode, dayIdx);
-        if (!plan) { delete routeMeta[key]; if (statsEl) statsEl.innerHTML = '—'; recomputeKPIs(); return; }
+        if (!plan) {
+            delete routeMeta[key]; if (statsEl) statsEl.innerHTML = '—';
+            if (actualMeta[key]) { (actualMeta[key].markers || []).forEach(m => actualLayerGroups[dayIdx].removeLayer(m)); delete actualMeta[key]; }
+            recomputeKPIs(); return;
+        }
         const { t, items, ordered, stops, preOfficeWells, policyOn, effortMin } = plan;
         const waypoints = stops; // {lat,lon} is all the coord-string builder below needs
+
+        if (dayHasActuals(currentWeek, dayIdx)) loadActualTrack(techCode, dayIdx, plan);
 
         if (statsEl) statsEl.innerHTML = '<span style="opacity:.6">routing…</span>';
         pendingRoutes++; updatePendingIndicator();
@@ -1039,7 +1228,7 @@
                 stops, ordered, // for the time-player: same stop sequence, re-fetched with turn detail on Play
             };
 
-            if (statsEl) statsEl.innerHTML = renderCellStats(routeMeta[key]);
+            if (statsEl) statsEl.innerHTML = renderCellStats(routeMeta[key], actualMeta[key]);
         } catch (err) {
             if (routeGen[key] !== myGen) return; // stale request -- a newer one already owns this cell
             routeMeta[key] = { error: true };
@@ -1048,6 +1237,138 @@
             pendingRoutes--; updatePendingIndicator();
             recomputeKPIs();
         }
+    }
+
+    // ── Actuals (recorded GPS vs. the plan) ─────────────────────────────────────
+    const STOP_SPEED_MPH = 2;        // at/under this counts as "not moving"
+    const MIN_STOP_MINUTES = 3;      // how long a not-moving run has to last to count as a real stop
+    const STOP_MATCH_RADIUS_M = 250; // snap a stop cluster to a known point (home/office/well) within this
+    const GPS_TZ_OFFSET_HOURS = -5;  // recorded timestamps are -05:00 (CDT) -- see tools/generate_gps_breadcrumbs.js
+    let actualTrackGen = {}; // same stale-response guard pattern as routeGen
+
+    // Wall-clock hour-of-day for a recorded timestamp, independent of the viewer's own browser
+    // timezone (epoch millis mod 24h is UTC hour-of-day; shift by the fixed recording offset).
+    function hourOfDayFromTs(ts) {
+        let h = ((ts / 3600000) % 24) + GPS_TZ_OFFSET_HOURS;
+        if (h < 0) h += 24;
+        return h;
+    }
+
+    async function loadActualTrack(techCode, dayIdx, plan) {
+        const key = `${techCode}_${dayIdx}`;
+        const myGen = (actualTrackGen[key] = (actualTrackGen[key] || 0) + 1);
+        const myWeek = currentWeek; // tech_day keys aren't week-scoped -- guard against a stale fetch landing after a week switch
+        const t = techs[techCode];
+        const iso = DAYS[dayIdx].iso;
+        const cacheKey = `${t.driver_name}_${iso}`;
+
+        let points = gpsTrackCache[cacheKey];
+        if (!points) {
+            try {
+                points = await new Promise((resolve, reject) => Papa.parse(`../data/GPS/${t.driver_name}_${iso}.csv`, {
+                    download: true, header: true, skipEmptyLines: true,
+                    complete: r => resolve(r.data), error: reject,
+                }));
+                gpsTrackCache[cacheKey] = points;
+            } catch (e) { return; } // no recording for this tech/day -- nothing to overlay
+        }
+        if (actualTrackGen[key] !== myGen || currentWeek !== myWeek) return; // stale -- a newer request or a week switch already moved past this
+        if (!points.length) return;
+
+        const analysis = analyzeActualTrack(points, plan, t);
+        actualMeta[key] = analysis;
+        renderActualTrack(techCode, dayIdx, analysis);
+        const statsEl = document.getElementById(`stats_${key}`);
+        if (statsEl && routeMeta[key] && !routeMeta[key].error) statsEl.innerHTML = renderCellStats(routeMeta[key], analysis);
+    }
+
+    // Turns a raw breadcrumb CSV into: total distance actually driven, elapsed/drive/field hours,
+    // and a list of detected stops (each snapped to the nearest planned well/office/home, or flagged
+    // "unplanned" if nothing known is within STOP_MATCH_RADIUS_M) -- the whole plan-vs-actual story.
+    function analyzeActualTrack(rawPoints, plan, t) {
+        const pts = rawPoints
+            .map(p => ({ lat: parseFloat(p.latitude), lon: parseFloat(p.longitude), speed: parseFloat(p.speed_mph), ts: new Date(p.timestamp).getTime() }))
+            .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && Number.isFinite(p.ts))
+            .sort((a, b) => a.ts - b.ts);
+        if (pts.length < 2) return null;
+
+        let totalMiles = 0;
+        for (let i = 1; i < pts.length; i++) totalMiles += haversineMi(pts[i - 1], pts[i]);
+
+        const knownPoints = [
+            { label: 'Home', type: 'home', lat: t.home_lat, lon: t.home_lon },
+            { label: 'Field Office', type: 'office', lat: OFFICE.lat, lon: OFFICE.lon },
+            ...plan.items.map(w => ({ label: w.EquipID, type: 'well', lat: w.Latitude, lon: w.Longitude, wo: w })),
+        ];
+        function snap(lat, lon) {
+            let best = null;
+            knownPoints.forEach(k => {
+                const distM = haversineMeters({ lat, lon }, k);
+                if (distM <= STOP_MATCH_RADIUS_M && (!best || distM < best.distM)) best = { ...k, distM };
+            });
+            return best;
+        }
+
+        // Runs of consecutive "not moving" points, each turned into a stop if it lasted long enough.
+        const stops = [];
+        let runStart = null;
+        for (let i = 0; i < pts.length; i++) {
+            const slow = pts[i].speed <= STOP_SPEED_MPH;
+            if (slow && runStart === null) runStart = i;
+            const endOfRun = !slow || i === pts.length - 1;
+            if (runStart !== null && endOfRun) {
+                const runEnd = slow ? i : i - 1;
+                const arrive = pts[runStart].ts, depart = pts[runEnd].ts;
+                const durationHours = (depart - arrive) / 3600000;
+                if (durationHours * 60 >= MIN_STOP_MINUTES) {
+                    const mid = pts[Math.floor((runStart + runEnd) / 2)];
+                    stops.push({ lat: mid.lat, lon: mid.lon, arrive, depart, durationHours, match: snap(mid.lat, mid.lon) });
+                }
+                runStart = null;
+            }
+        }
+
+        const dwellHours = stops.reduce((s, st) => s + st.durationHours, 0);
+        const elapsedHours = (pts[pts.length - 1].ts - pts[0].ts) / 3600000;
+        const fieldHours = stops.filter(s => s.match && s.match.type === 'well').reduce((s, st) => s + st.durationHours, 0);
+        const workStops = stops.filter(s => !s.match || s.match.type !== 'home'); // home mid-track isn't a "stop" worth reporting
+        const unplannedStops = workStops.filter(s => !s.match);
+
+        return {
+            totalMiles, elapsedHours, driveHours: Math.max(0, elapsedHours - dwellHours), fieldHours,
+            firstDepart: pts[0].ts, lastReturn: pts[pts.length - 1].ts, stops: workStops, unplannedStops, markers: [],
+            rawCoords: pts.map(p => ({ lat: p.lat, lon: p.lon })),
+        };
+    }
+
+    function actualStopIcon(matched) {
+        const color = !matched ? '#f97316' : matched.type === 'well' ? '#22c55e' : '#9aa1b8';
+        return L.divIcon({
+            className: '', iconSize: [11, 11], iconAnchor: [5, 5],
+            html: `<div style="width:11px;height:11px;background:${color};border:1.5px solid #0d1117;transform:rotate(45deg);"></div>`,
+        });
+    }
+
+    function renderActualTrack(techCode, dayIdx, analysis) {
+        const layerGroup = actualLayerGroups[dayIdx];
+        const markers = [];
+        const color = techColorHex(techCode);
+
+        // Raw recorded path -- thin dotted line, deliberately distinct from the thick solid planned route.
+        const line = L.polyline(analysis.rawCoords.map(c => [c.lat, c.lon]), { color, weight: 2, opacity: .75, dashArray: '1,7' })
+            .addTo(layerGroup).bindPopup(`<b>Actual path — ${techs[techCode].driver_name}</b><br><span style="color:#9aa1b8">${analysis.totalMiles.toFixed(1)} mi recorded</span>`);
+        markers.push(line);
+
+        analysis.stops.forEach(s => {
+            const label = s.match ? s.match.label : 'Unplanned stop';
+            const popup = `<b>${label}</b>${!s.match ? ' (not on the plan)' : ''}<br>` +
+                `Arrive ${clockStr(hourOfDayFromTs(s.arrive))} · Depart ${clockStr(hourOfDayFromTs(s.depart))}<br>` +
+                `<span style="color:#9aa1b8">${Math.round(s.durationHours * 60)} min on site</span>`;
+            const marker = L.marker([s.lat, s.lon], { icon: actualStopIcon(s.match) }).addTo(layerGroup).bindPopup(popup);
+            markers.push(marker);
+        });
+
+        actualMeta[`${techCode}_${dayIdx}`].markers = markers;
     }
 
     function clockStr(hDec) {
@@ -1273,11 +1594,35 @@
         if (playback) playback.speed = mult;
     }
 
-    function renderCellStats(m) {
+    function renderCellStats(m, actual) {
         if (!m) return '—';
         let html = `${m.wellCount} well${m.wellCount === 1 ? '' : 's'} · ${m.distanceMi.toFixed(1)} mi · ${m.naturalHours.toFixed(1)}h field`;
         html += `<br>$${Math.round(m.cost).toLocaleString()} billed (${m.billableHours.toFixed(1)}h) + $${Math.round(m.vehicleCost).toLocaleString()} vehicle`;
         m.flags.forEach(f => { const icon = f.cls === 'ok' ? '✓' : '⚠'; html += `<span class="flag ${f.cls}">${icon} ${f.txt}</span>`; });
+        if (actual) html += renderActualStatsLine(m, actual);
+        return html;
+    }
+
+    // The plan-vs-actual line: what really happened vs. what routing/roster estimates predicted,
+    // with a variance callout on total elapsed hours -- the number that answers "was our estimate
+    // accurate," which is the whole point of recording actuals in the first place.
+    function renderActualStatsLine(m, actual) {
+        let html = `<span class="flag" style="color:var(--text)">Actual: ${actual.totalMiles.toFixed(1)} mi · ` +
+            `${actual.driveHours.toFixed(1)}h drive · ${actual.fieldHours.toFixed(1)}h on-site · ` +
+            `${clockStr(hourOfDayFromTs(actual.firstDepart))}–${clockStr(hourOfDayFromTs(actual.lastReturn))}</span>`;
+        // Compare against billableHours (natural time + any 8-hour-policy padding), not naturalHours --
+        // a policy-compliant employee waiting out a short day to 8h is expected behavior, not a
+        // drive/task estimate miss, and comparing to the unpadded plan would flag it as one every time.
+        const plannedTotal = m.billableHours;
+        const varPct = plannedTotal > 0 ? ((actual.elapsedHours - plannedTotal) / plannedTotal) * 100 : 0;
+        if (Math.abs(varPct) >= 10) {
+            const cls = Math.abs(varPct) >= 30 ? 'bad' : 'warn';
+            const dir = varPct > 0 ? 'over' : 'under';
+            html += `<span class="flag ${cls}">⚠ ${Math.abs(varPct).toFixed(0)}% ${dir} planned time (${actual.elapsedHours.toFixed(1)}h actual vs. ${plannedTotal.toFixed(1)}h planned)</span>`;
+        }
+        if (actual.unplannedStops.length) {
+            html += `<span class="flag warn">⚠ ${actual.unplannedStops.length} unplanned stop${actual.unplannedStops.length === 1 ? '' : 's'}</span>`;
+        }
         return html;
     }
 
@@ -1308,7 +1653,14 @@
     // task priority and a rough capacity estimate, then hands off to the same live OSRM routing
     // every manual drag uses for the numbers that actually get displayed.
     function optimizeSchedule() {
-        workOrders.forEach(w => { w.assignedTech = null; w.assignedDay = null; w.StatusID = 'NEW'; w.repairAtWeekHour = null; });
+        // History is frozen: a well already dispatched on a day that's recorded actuals keeps
+        // exactly that assignment, and the optimizer only ever considers the days that are still open.
+        const lockedDays = new Set(DAYS.filter(d => dayHasActuals(currentWeek, d.key)).map(d => d.key));
+        const openDays = DAYS.filter(d => !lockedDays.has(d.key));
+        workOrders.forEach(w => {
+            if (w.assignedDay != null && lockedDays.has(w.assignedDay)) return;
+            w.assignedTech = null; w.assignedDay = null; w.StatusID = 'NEW'; w.repairAtWeekHour = null;
+        });
 
         const policyOn = document.getElementById('enforcePolicy').checked;
         const assigned = {}; // `${tech}_${day}` -> work orders assigned so far, in this simulation
@@ -1318,7 +1670,7 @@
         const projectedHoursWith = (tc, d, w) => estimateHoursFromMatrix(tc, [...(assigned[key(tc, d)] || []), w], policyOn);
         const CAPACITY_HOURS = 9.0;
 
-        const priority = [...workOrders].sort((a, b) => {
+        const priority = workOrders.filter(w => w.assignedDay == null).sort((a, b) => {
             const rank = w => w.MaintTypeID === 'COM' ? 0 : w.MaintTypeID === 'CM' ? 1 : 2;
             const ra = rank(a), rb = rank(b);
             if (ra !== rb) return ra - rb;
@@ -1333,7 +1685,7 @@
                 : ['ALV', 'RUZ']; // never hand routine PM/INS to the premium contractor
 
             let best = null;
-            for (const d of DAYS.map(x => x.key)) {
+            for (const d of openDays.map(x => x.key)) {
                 let dayBest = null;
                 for (const tc of candidates) {
                     const projected = projectedHoursWith(tc, d, w);
@@ -1346,11 +1698,12 @@
             }
             if (!best) {
                 // Nobody has clean room anywhere -- take the least-bad slot rather than leave it unscheduled.
-                DAYS.forEach(d => candidates.forEach(tc => {
+                openDays.forEach(d => candidates.forEach(tc => {
                     const projected = projectedHoursWith(tc, d.key, w);
                     if (!best || projected < best.projected) best = { tc, d: d.key, projected };
                 }));
             }
+            if (!best) return; // no open days left this week (fully-locked week) -- nothing to do
 
             w.assignedTech = best.tc; w.assignedDay = best.d; w.StatusID = 'ASG';
             const k = key(best.tc, best.d);
@@ -1461,7 +1814,7 @@
             const targetMeta = routeMeta[targetKey];
             if (!targetMeta || targetMeta.error) return;
             const statsEl = document.getElementById(`stats_${targetKey}`);
-            if (statsEl) statsEl.innerHTML = renderCellStats({ ...targetMeta, flags: [...(targetMeta.flags || []), ...extraFlags] });
+            if (statsEl) statsEl.innerHTML = renderCellStats({ ...targetMeta, flags: [...(targetMeta.flags || []), ...extraFlags] }, actualMeta[targetKey]);
         });
 
         const severityRank = { bad: 0, warn: 1 };
@@ -1520,6 +1873,58 @@
         if (!panel) return;
         panel.hidden = !panel.hidden;
         if (!panel.hidden) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Week-level plan-vs-actual roll-up -- the artifact meant to feed the next planning cycle:
+    // across every tech-day with recorded GPS this week, how far off were the drive/work-time
+    // estimates that built the schedule? Purely informational -- doesn't touch roster assumptions.
+    function togglePlanActualPanel() {
+        const panel = document.getElementById('planActualPanel');
+        if (!panel) return;
+        if (panel.hidden) renderPlanActualSummary();
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function renderPlanActualSummary() {
+        document.getElementById('planActualWeekLabel').textContent = WEEKS[currentWeek].label;
+        const rows = [];
+        let planDrive = 0, actualDrive = 0, planField = 0, actualField = 0, planMiles = 0, actualMiles = 0, unplanned = 0;
+        Object.entries(actualMeta).forEach(([key, a]) => {
+            const m = routeMeta[key];
+            if (!a || !m || m.error) return;
+            const [tc, dayIdxStr] = key.split('_');
+            planDrive += m.driveHours; actualDrive += a.driveHours;
+            planField += m.effortHours; actualField += a.fieldHours;
+            planMiles += m.distanceMi; actualMiles += a.totalMiles;
+            unplanned += a.unplannedStops.length;
+            const varPct = m.billableHours > 0 ? ((a.elapsedHours - m.billableHours) / m.billableHours) * 100 : 0;
+            rows.push({ tech: techs[tc].driver_name, day: DAYS[parseInt(dayIdxStr, 10)].label, m, a, varPct });
+        });
+        rows.sort((x, y) => Math.abs(y.varPct) - Math.abs(x.varPct));
+
+        const summaryEl = document.getElementById('planActualSummary');
+        if (!rows.length) {
+            summaryEl.innerHTML = 'No recorded actuals for this week.';
+            document.getElementById('planActualTableBody').innerHTML = '';
+            return;
+        }
+        summaryEl.innerHTML = `Across ${rows.length} recorded tech-day${rows.length === 1 ? '' : 's'}: ` +
+            `${actualDrive.toFixed(1)}h actual drive vs. ${planDrive.toFixed(1)}h planned &middot; ` +
+            `${actualField.toFixed(1)}h actual on-site vs. ${planField.toFixed(1)}h planned &middot; ` +
+            `${actualMiles.toFixed(1)} mi actual vs. ${planMiles.toFixed(1)} mi planned` +
+            (unplanned ? ` &middot; <span style="color:var(--warn)">${unplanned} unplanned stop${unplanned === 1 ? '' : 's'}</span>` : '');
+
+        document.getElementById('planActualTableBody').innerHTML = rows.map(r => {
+            const cls = Math.abs(r.varPct) >= 30 ? 'bad' : Math.abs(r.varPct) >= 10 ? 'warn' : 'ok';
+            return `<tr>
+                <td>${r.tech}</td>
+                <td>${r.day}</td>
+                <td>${r.m.billableHours.toFixed(1)}h total · ${r.m.distanceMi.toFixed(1)} mi</td>
+                <td>${r.a.elapsedHours.toFixed(1)}h total · ${r.a.totalMiles.toFixed(1)} mi</td>
+                <td><span class="sev-badge ${cls}">${r.varPct >= 0 ? '+' : ''}${r.varPct.toFixed(0)}%</span></td>
+            </tr>`;
+        }).join('');
     }
     </script>
     <footer class="page-footer">
